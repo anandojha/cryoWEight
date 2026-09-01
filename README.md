@@ -24,8 +24,8 @@ pip install -e .
 bash examples/chignolin/run.sh
 ```
 
-Three examples ship under `examples/`, each 3 iterations of 2 subiterations. chignolin is
-self contained, ntl9 and adk generate their 1 ns seeding MD first. Output lands in
+Four examples ship under `examples/`, each 3 iterations of 2 subiterations. chignolin is
+self contained, the others generate their 1 ns seeding MD first. Output lands in
 `run*/merged_WE/fes.png`.
 
 ## Configure

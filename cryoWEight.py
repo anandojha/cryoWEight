@@ -347,8 +347,18 @@ def run_init_reweight_simulation():
 
 
 def run_iterative_reweight_simulation(N):
+    global SIGMA_SIGN
     if SIGMA_SIGN == "auto":
-        raise SystemExit("sigma_sign auto is resolved by init, run init before iterate")
+        # init resolved the sign and wrote it into the assembled tree, and iterate is
+        # its own process, so the resolved value is read back from there.
+        import json
+
+        rc = json.load(open(os.path.join(SCRIPTS, "reweight_config.json")))
+        if rc.get("sigma_sign") in ("+", "-"):
+            SIGMA_SIGN = rc["sigma_sign"]
+            print(f"sigma_sign auto: using {SIGMA_SIGN!r} resolved at init")
+        else:
+            raise SystemExit("sigma_sign auto is resolved by init, run init before iterate")
     run_dir = f"run{N}"
     prev_re = f"reweight_run{N-1}"
     re_dir = f"reweight_run{N}"

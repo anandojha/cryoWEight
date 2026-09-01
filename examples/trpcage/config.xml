@@ -1,0 +1,173 @@
+<?xml version="1.0"?>
+<cryoweight>
+  <analysis_boundary_0>[0.0, 2.5, 6.0, 10.0, 'inf']</analysis_boundary_0>
+  <analysis_boundary_1>[0.0, 5.0, 8.0, 10.0, 'inf']</analysis_boundary_1>
+  <analysis_scheme_name>FOLDED_UNFOLDED</analysis_scheme_name>
+  <analysis_states_block>           - label: folded
+             coords: 
+               - [2.4, 1.0]
+               - [2.4, 7.0]
+               - [2.4, 9.0]
+               - [2.4, 11.0]
+           - label: unfolded
+             coords: 
+               - [6.1, 1.0]
+               - [6.1, 7.0]
+               - [6.1, 9.0]
+               - [6.1, 11.0]
+</analysis_states_block>
+  <base_boundary_0>[0.0, 0.9091, 1.8182, 2.7273, 3.6364, 4.5455, 5.4545, 6.3636, 7.2727, 8.1818, 9.0909, 10.0]</base_boundary_0>
+  <base_boundary_1>[4.0, 4.9091, 5.8182, 6.7273, 7.6364, 8.5455, 9.4545, 10.3636, 11.2727, 12.1818, 13.0909, 14.0]</base_boundary_1>
+  <convergence>
+    <kl_threshold type="float">0.05</kl_threshold>
+    <max_iterations type="int">5</max_iterations>
+  </convergence>
+  <initial_sim_time_us>0.2</initial_sim_time_us>
+  <mab_at>[5.0, 9.0]</mab_at>
+  <mab_nbins>[18, 18]</mab_nbins>
+  <max_run_wallclock>167:00:00</max_run_wallclock>
+  <n_iterations type="int">2</n_iterations>
+  <post_iter_keep_window>1</post_iter_keep_window>
+  <resampling_time_ps type="float">10.0</resampling_time_ps>
+  <reweight_config>
+    <N_draw type="int">100</N_draw>
+    <T type="int">300</T>
+    <add_ctf type="bool">true</add_ctf>
+    <batch_size type="int">8</batch_size>
+    <bin_clip type="bool">false</bin_clip>
+    <bin_digitize_right type="bool">false</bin_digitize_right>
+    <bin_width type="float">0.1</bin_width>
+    <bin_x_max type="float">10.0</bin_x_max>
+    <bin_x_min type="float">0.0</bin_x_min>
+    <bin_y_max type="float">14.0</bin_y_max>
+    <bin_y_min type="float">4.0</bin_y_min>
+    <bottleneck_contourf_extend type="null" />
+    <bottleneck_nbins type="list">[200, 200]</bottleneck_nbins>
+    <bottleneck_neg_fallback type="bool">true</bottleneck_neg_fallback>
+    <bottleneck_xlabel></bottleneck_xlabel>
+    <bottleneck_ylabel></bottleneck_ylabel>
+    <bstate_md_steps type="int">100</bstate_md_steps>
+    <bstate_minimize_max_iterations type="int">100</bstate_minimize_max_iterations>
+    <bstate_report_interval type="int">100</bstate_report_interval>
+    <cluster_axis_limit type="int">15</cluster_axis_limit>
+    <constraints>HBonds</constraints>
+    <cv_atom_selection>name CA</cv_atom_selection>
+    <cv_cfg>
+      <cv_family>rmsd_rg</cv_family>
+      <cv_atom_selection>name CA</cv_atom_selection>
+    </cv_cfg>
+    <cv_family>rmsd_rg</cv_family>
+    <cv_reference_pdb>folded.pdb</cv_reference_pdb>
+    <cv_xlabel>RMSD (Å)</cv_xlabel>
+    <cv_ylabel>Radius of Gyration (Å)</cv_ylabel>
+    <dcd_report_interval type="int">5000</dcd_report_interval>
+    <defocus_max type="float">0.09</defocus_max>
+    <defocus_min type="float">0.027</defocus_min>
+    <fe_nbins type="list">[100, 100]</fe_nbins>
+    <fes_sigma type="list">[3, 1]</fes_sigma>
+    <ff_main>amber14-all.xml</ff_main>
+    <ff_solvent>implicit/obc2.xml</ff_solvent>
+    <friction_per_ps type="int">5</friction_per_ps>
+    <heatmap_xticks type="list">[0, 20.9, 2]</heatmap_xticks>
+    <heatmap_yticks type="list">[0, 20.9, 2]</heatmap_yticks>
+    <hist_eps type="float">1e-12</hist_eps>
+    <init_md_dcd>trpcage.dcd</init_md_dcd>
+    <init_md_dir>../init_MD</init_md_dir>
+    <init_md_max_frames type="int">200</init_md_max_frames>
+    <input_pdb>trpcage.pdb</input_pdb>
+    <integrator_friction_per_ps type="int">5</integrator_friction_per_ps>
+    <kB type="float">0.008314</kB>
+    <log_report_interval type="int">5000</log_report_interval>
+    <merged_max_frames type="int">10000000000</merged_max_frames>
+    <merged_we_dcd>traj_all.dcd</merged_we_dcd>
+    <merged_we_dir>../runx/merged_WE</merged_we_dir>
+    <minimize_max_iterations type="int">10000</minimize_max_iterations>
+    <minimize_tolerance_kj_nm type="float">10.0</minimize_tolerance_kj_nm>
+    <n_batch type="int">2</n_batch>
+    <n_image_per_struc type="int">1</n_image_per_struc>
+    <n_pixel type="int">64</n_pixel>
+    <n_steps type="int">500000</n_steps>
+    <nbins type="list">[100, 100]</nbins>
+    <nonbonded_cutoff_nm type="int">2</nonbonded_cutoff_nm>
+    <out_boltz_dcd>image_sel.dcd</out_boltz_dcd>
+    <out_dcd>trpcage.dcd</out_dcd>
+    <out_log>trpcage.log</out_log>
+    <out_pdb>trpcage.pdb</out_pdb>
+    <out_sel_dcd>image_cutoff.dcd</out_sel_dcd>
+    <out_state>trpcage.xml</out_state>
+    <output_file>fes.png</output_file>
+    <pixel_size type="float">0.2</pixel_size>
+    <platform>CUDA</platform>
+    <run_plot_free_energy type="bool">false</run_plot_free_energy>
+    <select_mode>thresh</select_mode>
+    <sigma type="float">1.5</sigma>
+    <sigma_mults type="list">[-3, -2, -1, 1, 2, 3]</sigma_mults>
+    <sigma_sign>auto</sigma_sign>
+    <snr type="float">1.0</snr>
+    <snr_int type="int">1</snr_int>
+    <solute_dielectric type="float">1.0</solute_dielectric>
+    <solvent_dielectric type="float">78.5</solvent_dielectric>
+    <solvent_model>implicit</solvent_model>
+    <step type="int">4</step>
+    <strip_selection>not water</strip_selection>
+    <tar_base>/mnt/home/aojha/ceph/ensemble_reweighting/ntl9_iterative_WE/iterative_reweighting/permissive_40_iter_snr_1.0_2.75_3.50</tar_base>
+    <tar_iterations type="list">[38, 39, 40]</tar_iterations>
+    <tar_n_runs type="int">3</tar_n_runs>
+    <temperature_K type="int">300</temperature_K>
+    <timestep_ps type="float">0.002</timestep_ps>
+    <topology_analysis>trpcage.pdb</topology_analysis>
+    <topology_file>trpcage.pdb</topology_file>
+    <topology_we>trpcage.pdb</topology_we>
+    <traj_file>image.dcd</traj_file>
+    <trajectory_file>traj.dcd</trajectory_file>
+    <x_lower type="float">2.75</x_lower>
+    <x_range type="list">[0.0, 10.0]</x_range>
+    <x_thresh type="float">4.0</x_thresh>
+    <x_upper type="float">3.5</x_upper>
+    <xlabel>RMSD (Å)</xlabel>
+    <xmax type="float">10.0</xmax>
+    <xmin type="float">0.0</xmin>
+    <xticks type="list">[0, 19, 2.0]</xticks>
+    <y_range type="list">[4.0, 14.0]</y_range>
+    <ylabel>Radius of Gyration (Å)</ylabel>
+    <ymax type="float">14.0</ymax>
+    <ymin type="float">4.0</ymin>
+    <yticks type="list">[6, 19, 2.0]</yticks>
+    <n_iterations type="int">2</n_iterations>
+  </reweight_config>
+  <sbatch_gpus_pad>                     </sbatch_gpus_pad>
+  <sbatch_jobname_pad>      </sbatch_jobname_pad>
+  <sbatch_partition_pad>  </sbatch_partition_pad>
+  <seg_config>
+    <constraints>HBonds</constraints>
+    <cv_atom_selection>name CA</cv_atom_selection>
+    <cv_family>rmsd_rg</cv_family>
+    <cv_reference_pdb>folded.pdb</cv_reference_pdb>
+    <dcd_report_interval type="int">2500</dcd_report_interval>
+    <ff_main>amber14-all.xml</ff_main>
+    <ff_solvent>implicit/obc2.xml</ff_solvent>
+    <friction_per_ps type="int">5</friction_per_ps>
+    <input_pdb>bstate.pdb</input_pdb>
+    <log_report_interval type="int">2000</log_report_interval>
+    <n_steps_per_segment type="int">5000</n_steps_per_segment>
+    <nonbonded_cutoff_nm type="int">2</nonbonded_cutoff_nm>
+    <out_dcd>seg.dcd</out_dcd>
+    <out_log>seg.log</out_log>
+    <out_state>seg.xml</out_state>
+    <platform>CUDA</platform>
+    <restart_state>parent.xml</restart_state>
+    <solute_dielectric type="float">1.0</solute_dielectric>
+    <solvent_dielectric type="float">78.5</solvent_dielectric>
+    <solvent_model>implicit</solvent_model>
+    <temperature_K type="int">300</temperature_K>
+    <timestep_ps type="float">0.002</timestep_ps>
+  </seg_config>
+  <segs_per_state>4</segs_per_state>
+  <sigma_sign>auto</sigma_sign>
+  <slurm_time>47:30:00</slurm_time>
+  <ssh_host>rusty</ssh_host>
+  <topology_explicit>trpcage.pdb</topology_explicit>
+  <topology_stripped>trpcage.pdb</topology_stripped>
+  <walkers_per_bin>4</walkers_per_bin>
+  <conda_env>cryoweight</conda_env>
+</cryoweight>
