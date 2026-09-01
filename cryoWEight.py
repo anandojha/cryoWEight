@@ -29,6 +29,7 @@ WE_FILES = "WE_files"
 CONFIG_SYSTEM = None
 CFG = {}
 SIGMA_SIGN = "+"
+FRESH = False
 SIGMA_STRATEGY = "permissive"
 TOPOLOGY_EXPLICIT = ""
 TOPOLOGY_STRIPPED = ""
@@ -346,6 +347,33 @@ def run_init_reweight_simulation():
     print("Initial reweighting complete.")
 
 
+def _westpa_done(run_dir, n_iterations):
+    """Whether a WESTPA run already holds every subiteration it was asked for."""
+    path = os.path.join(run_dir, "west.h5")
+    if not os.path.isfile(path):
+        return False
+    try:
+        import h5py
+
+        with h5py.File(path, "r") as handle:
+            return int(handle.attrs["west_current_iteration"]) > int(n_iterations)
+    except Exception:
+        return False
+
+
+def _merge_done(run_dir):
+    merged = os.path.join(run_dir, "merged_WE")
+    return os.path.isfile(os.path.join(merged, "traj.dcd")) and os.path.isfile(
+        os.path.join(merged, "traj_all.dcd")
+    )
+
+
+def _reweight_done(re_dir):
+    return os.path.isfile(os.path.join(re_dir, "bstates", "bstates.txt")) and os.path.isfile(
+        os.path.join(re_dir, "output", "bottleneck_coordinates.txt")
+    )
+
+
 def run_iterative_reweight_simulation(N):
     global SIGMA_SIGN
     if SIGMA_SIGN == "auto":
@@ -363,38 +391,51 @@ def run_iterative_reweight_simulation(N):
     prev_re = f"reweight_run{N-1}"
     re_dir = f"reweight_run{N}"
     merged_dir = os.path.join(run_dir, "merged_WE")
-    # A) Set up WestPA runN
-    if os.path.isdir(run_dir):
-        shutil.rmtree(run_dir)
-    os.makedirs(run_dir)
-    # Copy bstates from the previous reweight
-    shutil.copytree(os.path.join(prev_re, "bstates"), os.path.join(run_dir, "bstates"))
-    # Copy the assembled WE_files and scripts tree for this system (system agnostic).
-    _stage_we_files(run_dir)
-    x, y = _select_bottleneck_coords(
-        os.path.join(prev_re, "output", "bottleneck_coordinates.txt"), SIGMA_STRATEGY, SIGMA_SIGN
-    )
-    _write_west_cfg_coords(os.path.join(run_dir, "west.cfg"), x, y)
-    # B) Initialize + run the WESTPA weighted ensemble run (local or cluster)
-    _run_westpa(run_dir, f"run{N}")
+    # A) Set up WestPA runN. A finished run is kept unless --fresh asks otherwise, so a
+    # failure later in the iteration never forces the dynamics to be redone.
+    if FRESH or not _westpa_done(run_dir, CFG["n_iterations"]):
+        if os.path.isdir(run_dir):
+            shutil.rmtree(run_dir)
+        os.makedirs(run_dir)
+        # Copy bstates from the previous reweight
+        shutil.copytree(os.path.join(prev_re, "bstates"), os.path.join(run_dir, "bstates"))
+        # Copy the assembled WE_files and scripts tree for this system (system agnostic).
+        _stage_we_files(run_dir)
+        x, y = _select_bottleneck_coords(
+            os.path.join(prev_re, "output", "bottleneck_coordinates.txt"),
+            SIGMA_STRATEGY,
+            SIGMA_SIGN,
+        )
+        _write_west_cfg_coords(os.path.join(run_dir, "west.cfg"), x, y)
+        # B) Initialize + run the WESTPA weighted ensemble run (local or cluster)
+        _run_westpa(run_dir, f"run{N}")
+    else:
+        print(f"run{N}: WESTPA run already complete, skipping")
     # C) Merge segment trajectories for the current WE run
-    staged = _stage_script("merge.py", run_dir)
-    try:
-        subprocess.run(["python", "merge.py"], cwd=run_dir, check=True)
-    finally:
-        for path in staged:
-            os.remove(path)
+    if FRESH or not _merge_done(run_dir):
+        staged = _stage_script("merge.py", run_dir)
+        try:
+            subprocess.run(["python", "merge.py"], cwd=run_dir, check=True)
+        finally:
+            for path in staged:
+                os.remove(path)
+    else:
+        print(f"run{N}: merge already complete, skipping")
     prev_run = f"run{N-1}"
     for topo in (TOPOLOGY_EXPLICIT, TOPOLOGY_STRIPPED):
         shutil.copy(os.path.join(prev_run, "merged_WE", topo), os.path.join(merged_dir, topo))
-    # D) Plot free energy
-    staged = _stage_script("plot_free_energy.py", merged_dir)
-    try:
-        subprocess.run(["python", "plot_free_energy.py"], cwd=merged_dir, check=True)
-    finally:
-        for path in staged:
-            os.remove(path)
+    # D) Plot free energy, cheap enough to redo whenever the figure is absent.
+    if FRESH or not os.path.isfile(os.path.join(merged_dir, CFG.get("output_file", "fes.png"))):
+        staged = _stage_script("plot_free_energy.py", merged_dir)
+        try:
+            subprocess.run(["python", "plot_free_energy.py"], cwd=merged_dir, check=True)
+        finally:
+            for path in staged:
+                os.remove(path)
     # E) Reweight → reweight_runN
+    if not FRESH and _reweight_done(re_dir):
+        print(f"run{N}: reweighting already complete, skipping")
+        return
     if os.path.isdir(re_dir):
         shutil.rmtree(re_dir)
     os.makedirs(re_dir)
@@ -499,7 +540,7 @@ def _expand_runs(args) -> list[int]:
 
 def main(argv=None):
     """Parse the command line, resolve the settings for this system, and run the modes requested."""
-    global CONFIG_SYSTEM, CFG, SIGMA_SIGN, TOPOLOGY_EXPLICIT, TOPOLOGY_STRIPPED
+    global CONFIG_SYSTEM, CFG, SIGMA_SIGN, TOPOLOGY_EXPLICIT, TOPOLOGY_STRIPPED, FRESH
     global SSH_HOST, LOCAL, N_WORKERS, SIGMA_STRATEGY
     parser = argparse.ArgumentParser(description="cryoWEight: init or iterative WE + reweighting")
     parser.add_argument(
@@ -547,6 +588,11 @@ def main(argv=None):
     )
     p_iter.add_argument("--runs", type=str, help="Comma/space list and/or ranges, e.g. '2-4,5-7 9'")
     p_iter.add_argument(
+        "--fresh",
+        action="store_true",
+        help="Redo every stage of each iteration even when its outputs already exist",
+    )
+    p_iter.add_argument(
         "--until-converged",
         action="store_true",
         help="Iterate until the KL divergence drops below convergence.kl_threshold",
@@ -565,6 +611,7 @@ def main(argv=None):
     CFG = assemble.load_cfg(CONFIG_SYSTEM)
     # Once per system literals, now read from the config
     SIGMA_SIGN = CFG["sigma_sign"]
+    FRESH = bool(getattr(args, "fresh", False))
     TOPOLOGY_EXPLICIT = CFG["topology_explicit"]
     TOPOLOGY_STRIPPED = CFG["topology_stripped"]
     SSH_HOST = CFG["ssh_host"]

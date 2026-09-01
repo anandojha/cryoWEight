@@ -2564,6 +2564,41 @@ def test_auto_sigma_sign_puts_the_bottleneck_on_the_target_side():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_iteration_stages_report_done_only_on_real_artifacts():
+    """Resume trusts artifact content, not file existence, so a half written run is
+    redone rather than skipped."""
+    import h5py
+
+    import cryoWEight
+
+    tmp = tempfile.mkdtemp()
+    try:
+        run = os.path.join(tmp, "run2")
+        os.makedirs(os.path.join(run, "merged_WE"))
+        assert not cryoWEight._westpa_done(run, 2)
+        with h5py.File(os.path.join(run, "west.h5"), "w") as fh:
+            fh.attrs["west_current_iteration"] = 2
+        assert not cryoWEight._westpa_done(run, 2), "an unfinished run passed as done"
+        with h5py.File(os.path.join(run, "west.h5"), "w") as fh:
+            fh.attrs["west_current_iteration"] = 3
+        assert cryoWEight._westpa_done(run, 2)
+
+        assert not cryoWEight._merge_done(run)
+        for f in ("traj.dcd", "traj_all.dcd"):
+            open(os.path.join(run, "merged_WE", f), "w").close()
+        assert cryoWEight._merge_done(run)
+
+        re_dir = os.path.join(tmp, "reweight_run2")
+        os.makedirs(os.path.join(re_dir, "bstates"))
+        os.makedirs(os.path.join(re_dir, "output"))
+        assert not cryoWEight._reweight_done(re_dir)
+        open(os.path.join(re_dir, "bstates", "bstates.txt"), "w").close()
+        open(os.path.join(re_dir, "output", "bottleneck_coordinates.txt"), "w").close()
+        assert cryoWEight._reweight_done(re_dir)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def _main():
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
     failed = []
