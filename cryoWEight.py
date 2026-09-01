@@ -37,44 +37,34 @@ LOCAL = False
 N_WORKERS = 4
 
 
-def _resolve_sigma_sign(reweight_dir):
-    """Direction of the reweighting along the leading CV, from the run0 weight shift.
+def _resolve_sigma_sign(reweight_dir, cfg):
+    """Which side of the prior the target lies on along the leading CV.
 
-    The expectation maximization pulls weight toward the target, so the weighted mean
-    bin index moving up means the target lies above the prior and the bottleneck is
-    searched on the plus side, and moving down means the minus side.
+    The target region comes from the selection keys of the configuration, and the
+    prior mean comes from the binned seeding ensemble that run0 wrote. The weight
+    shift of the reweighting is not used, because a prior with no overlap with the
+    target ranks its own structures in an arbitrary direction.
     """
-    import ast
-
-    pre = {}
-    with open(os.path.join(reweight_dir, "output", "mergd_bins_wght.txt")) as handle:
-        next(handle)
+    weights, bins = [], []
+    with open(os.path.join(reweight_dir, "output", "bin_crds_wght.txt")) as handle:
         for line in handle:
-            parts = line.rsplit(None, 2)
-            if len(parts) == 3:
-                pre[
-                    ast.literal_eval(
-                        parts[0]
-                        if parts[0].startswith("(")
-                        else line[: line.rindex(parts[1])].strip()
-                    )
-                ] = float(parts[2])
-    post = {}
-    with open(os.path.join(reweight_dir, "output", "mergd_bins_wght_rescld.txt")) as handle:
-        for line in handle:
-            line = line.strip()
-            if line:
-                row = ast.literal_eval(re.sub(r"np\.\w+\(([^()]*)\)", r"\1", line))
-                post[tuple(row["Bin"])] = post.get(tuple(row["Bin"]), 0.0) + sum(row["Weights"])
+            m = re.search(r"Bin (\d+),.*Weight: ([0-9.eE+-]+)", line)
+            if m:
+                bins.append(int(m.group(1)))
+                weights.append(float(m.group(2)))
+    total = sum(weights)
+    mean_bin = sum(b * w for b, w in zip(bins, weights)) / total
+    prior = float(cfg["bin_x_min"]) + (mean_bin + 0.5) * float(cfg["bin_width"])
 
-    def mean_x(dist):
-        total = sum(dist.values())
-        return sum(b[0] * w for b, w in dist.items()) / total
-
-    sign = "+" if mean_x(post) >= mean_x(pre) else "-"
+    mode = cfg.get("select_mode", "thresh")
+    if mode in ("thresh", "ge", "le"):
+        target = float(cfg["x_thresh"])
+    else:
+        target = (float(cfg["x_lower"]) + float(cfg["x_upper"])) / 2.0
+    sign = "+" if target >= prior else "-"
     print(
-        f"sigma_sign auto: prior mean bin {mean_x(pre):.2f}, "
-        f"posterior mean bin {mean_x(post):.2f}, resolved {sign!r}"
+        f"sigma_sign auto: prior mean cv {prior:.2f}, target region at {target:.2f}, "
+        f"resolved {sign!r}"
     )
     return sign
 
@@ -302,13 +292,13 @@ def run_init_reweight_simulation():
     _stage_we_files(RUN1)
     global SIGMA_SIGN
     if SIGMA_SIGN == "auto":
-        SIGMA_SIGN = _resolve_sigma_sign(R0_DIR)
-        # The staged runtime scripts read the sign from their config, so the resolved
-        # value is written back into the assembled tree.
         import json
 
+        rc = json.load(open(os.path.join(SCRIPTS, "reweight_config.json")))
+        SIGMA_SIGN = _resolve_sigma_sign(R0_DIR, rc)
+        # The staged runtime scripts read the sign from their config, so the resolved
+        # value is written back into the assembled tree.
         rc_path = os.path.join(SCRIPTS, "reweight_config.json")
-        rc = json.load(open(rc_path))
         rc["sigma_sign"] = SIGMA_SIGN
         with open(rc_path, "w") as handle:
             json.dump(rc, handle, indent=2)

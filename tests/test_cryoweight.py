@@ -2562,32 +2562,39 @@ def test_config_xml_round_trips_every_value_type():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def test_auto_sigma_sign_follows_the_weight_shift():
-    """The reweighting pulls weight toward the target, so the shift of the weighted
-    mean bin decides which side of the prior the bottleneck is searched on."""
+def test_auto_sigma_sign_puts_the_bottleneck_on_the_target_side():
+    """The sign compares where the configured target region lies against the mean of
+    the binned seeding ensemble, so a prior with no target overlap still resolves."""
     import cryoWEight
 
-    def write_run(tmp, pre_rows, post_rows):
+    def write_run(tmp, bins_weights):
         out = os.path.join(tmp, "output")
         os.makedirs(out)
-        with open(os.path.join(out, "mergd_bins_wght.txt"), "w") as fh:
-            fh.write("BinCoord AllIndices TotalWeight\n")
-            for b, w in pre_rows:
-                fh.write(f"{b} 0 {w:.6e}\n")
-        with open(os.path.join(out, "mergd_bins_wght_rescld.txt"), "w") as fh:
-            for b, w in post_rows:
-                fh.write(str({"Bin": b, "Indices": [0], "Weights": [w]}) + "\n")
+        with open(os.path.join(out, "bin_crds_wght.txt"), "w") as fh:
+            for i, (b, w) in enumerate(bins_weights):
+                fh.write(f"Frame {i}: RMSD Bin {b}, Rg Bin 5, Weight: {w:.6e}\n")
 
-    up = tempfile.mkdtemp()
-    down = tempfile.mkdtemp()
+    cfg = {"bin_x_min": 0, "bin_width": 1.0, "select_mode": "thresh", "x_thresh": 7.25}
+    tmp = tempfile.mkdtemp()
     try:
-        write_run(up, [((2, 5), 0.5), ((4, 5), 0.5)], [((2, 5), 0.1), ((4, 5), 0.9)])
-        assert cryoWEight._resolve_sigma_sign(up) == "+"
-        write_run(down, [((2, 5), 0.5), ((4, 5), 0.5)], [((2, 5), 0.9), ((4, 5), 0.1)])
-        assert cryoWEight._resolve_sigma_sign(down) == "-"
+        write_run(tmp, [(1, 0.5), (3, 0.5)])
+        assert cryoWEight._resolve_sigma_sign(tmp, cfg) == "+"
     finally:
-        shutil.rmtree(up, ignore_errors=True)
-        shutil.rmtree(down, ignore_errors=True)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    cfg = {
+        "bin_x_min": 0,
+        "bin_width": 1.0,
+        "select_mode": "window",
+        "x_lower": 2.75,
+        "x_upper": 3.5,
+    }
+    tmp = tempfile.mkdtemp()
+    try:
+        write_run(tmp, [(12, 0.5), (14, 0.5)])
+        assert cryoWEight._resolve_sigma_sign(tmp, cfg) == "-"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def _main():
