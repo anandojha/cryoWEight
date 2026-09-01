@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cryoweight"
+version = "0.1.0"
+description = "Iterative reweighting of WESTPA weighted ensemble MD against cryo-EM data"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Anand Ojha" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Chemistry",
+]
+# mdtraj, openmm, MDAnalysis and westpa are conda packages rather than wheels, so they are
+# installed from environment.yml and deliberately not declared here.
+dependencies = [
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "pandas",
+    "tqdm",
+    "scikit-learn",
+]
+
+[project.urls]
+Homepage = "https://github.com/anandojha/cryoWEight"
+
+[project.scripts]
+# cryoWEight.py keeps its name and its "python cryoWEight.py" usage; the
+# console script is the same main() reached through the installed module.
+cryoweight = "cryoWEight:main"
+
+[tool.setuptools]
+packages = ["cryoweight"]
+py-modules = ["assemble", "cryoWEight", "new_system"]
+
+# Declared here rather than repeated on each coverage invocation in the workflow.
+[tool.coverage.run]
+# source is deliberately not set: it would narrow measurement to the package and drop
+# cryoWEight.py and assemble.py, which are the driver and the run tree builder.
+include = ["cryoweight/*", "cryoWEight.py", "assemble.py", "new_system.py"]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.black]
+line-length = 100

@@ -1,0 +1,31 @@
+from westpa.analysis import Run
+import numpy as np
+import argparse
+
+def calculate_simulation_time(west_file, num_iter, resampling_time):
+    """
+    Calculate the total simulation time based on the number of iterations
+    and the resampling time per iteration.
+
+    :param west_file: Path to the WESTPA HDF5 file
+    :param num_iter: Number of iterations to analyze
+    :param resampling_time: Resampling time per iteration in picoseconds
+    :return: Total simulation time in microseconds
+    """
+    run = Run.open(west_file)
+    st = np.zeros((num_iter, 1))
+    for i in range(1, num_iter + 1):  
+        iter_current = run.iteration(i)
+        num_walkers = iter_current.num_walkers
+        st[i-1] = num_walkers * resampling_time
+    ST = sum(st) / 1000000  # Convert from ps to µs
+    run.close()
+    print(f'Total simulation time after {num_iter} iterations = {ST[0]:.4f} µs')
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Compute total simulation time from WESTPA HDF5 data.")
+    parser.add_argument("--file", type=str, default="west.h5", help="Path to the WESTPA HDF5 file (default: west.h5)")
+    parser.add_argument("--num_iter", type=int, default={{n_iterations}}, help="Number of iterations to analyze")
+    parser.add_argument("--resampling_time", type=float, default={{resampling_time_ps}}, help="Resampling time per iteration in ps (default: {{resampling_time_ps}} ps)")
+    args = parser.parse_args()
+    calculate_simulation_time(args.file, args.num_iter, args.resampling_time)

@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+import subprocess
+import argparse
+import re
+import os
+
+# Define initial simulation time in microseconds
+INITIAL_SIM_TIME = {{initial_sim_time_us}}  # µs
+
+def main():
+    parser = argparse.ArgumentParser(description="Get simulation times for run directories")
+    parser.add_argument("--iter", choices=["completed", "running"], required=True, help="Compute times for all completed runs or for currently running runs (exclude last)")
+    args = parser.parse_args()
+    cwd = os.getcwd()
+    run_dirs = [d for d in os.listdir(cwd) if os.path.isdir(d) and re.match(r"run\d+", d)]
+    if not run_dirs:
+        print("No run directories found (run1, run2, ...).")
+        return
+    # Sort numerically
+    run_dirs = sorted(run_dirs, key=lambda x: int(re.search(r"\d+", x).group()))
+    # If running, exclude the last run
+    if args.iter == "running":
+        run_dirs = run_dirs[:-1]
+    sim_times = [INITIAL_SIM_TIME]
+    for run_dir in run_dirs:
+        print(f"--- Entering {run_dir} ---")
+        simtime_path = os.path.join(run_dir, "simtime.py")
+        if not os.path.isfile(simtime_path):
+            print(f"   Skipping {run_dir}: simtime.py not found.")
+            continue
+        try:
+            result = subprocess.run(
+                ["python", "simtime.py"], cwd=run_dir, check=True, capture_output=True, text=True)
+            print(result.stdout.strip())
+            match = re.search(r"=\s*([\d.]+)\s*µs", result.stdout)
+            if match:
+                sim_time = float(match.group(1))
+                sim_times.append(sim_time)
+                print(f"   Completed {run_dir}")
+            else:
+                print(f"   Warning: Could not parse simulation time in {run_dir}")
+        except subprocess.CalledProcessError as e:
+            print(f"   Error in {run_dir}: {e}")
+    # Print summary
+    print("\nSimulation times (µs):", sim_times)
+    total_time = sum(sim_times)
+    print(f"Total simulation time (µs): {total_time:.4f}")
+    # Save to data.txt
+    processed_iterations = [int(re.search(r"\d+", d).group()) for d in run_dirs]  # folder numbers actually processed
+    os.makedirs("plots", exist_ok=True)
+with open("plots/data.txt", "w") as f:
+        f.write(f"Simulation times (µs): {sim_times}\n")
+        f.write(f"Total simulation time (µs): {total_time:.4f}\n")
+        f.write(f"Folder numbers: {processed_iterations}\n")
+if __name__ == "__main__":
+    main()
+

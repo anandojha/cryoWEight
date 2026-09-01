@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          python-version: "3.10"
+          channels: conda-forge
+          activate-environment: cryoweight-ci
+
+      # environment.yml pins CUDA and pulls WESTPA, neither of which a CPU runner needs
+      # or the tests use, so the runner installs the subset the suites import.
+      - name: Install dependencies
+        run: |
+          # pytorch-cpu is the conda-forge spelling; cpuonly lives in the pytorch
+          # channel, which this job does not enable.
+          conda install -c conda-forge -y \
+            numpy scipy matplotlib pandas tqdm pyyaml \
+            mdtraj mdanalysis openmm scikit-learn pytorch-cpu
+          # The toml extra is needed on Python 3.10 for coverage to read its
+          # settings out of pyproject.toml; 3.11 has tomllib in the stdlib.
+          pip install "coverage[toml]"
+          pip install -e .
+
+      - name: Show what was installed
+        run: conda list | grep -E 'torch|mdtraj|openmm|mdanalysis'
+
+      - name: Unit tests
+        run: coverage run tests/test_cryoweight.py
+
+      - name: End to end run on model data
+        run: coverage run -a tests/test_end_to_end.py
+
+      - name: Coverage report
+        run: |
+          coverage report
+          coverage xml
+
+      # Uploading is best effort and must not turn a green run red. The repository is
+      # public, so the upload authenticates through the GitHub OIDC identity of this
+      # workflow and no upload token exists anywhere.
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          use_oidc: true
+          slug: anandojha/cryoWEight
+          files: ./coverage.xml
+          fail_ci_if_error: false
+        continue-on-error: true

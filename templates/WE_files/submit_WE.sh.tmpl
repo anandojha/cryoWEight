@@ -1,0 +1,18 @@
+#!/bin/bash
+#SBATCH --job-name=cryoWEight{{sbatch_jobname_pad}}
+#SBATCH --partition=gpu{{sbatch_partition_pad}}
+#SBATCH --nodes=1                                                               
+#SBATCH --gpus-per-node=4{{sbatch_gpus_pad}}
+#SBATCH --ntasks-per-node=8  
+#SBATCH --cpus-per-task=4                                  
+#SBATCH --mem=512000   
+#SBATCH --time={{slurm_time}}
+#SBATCH --mail-user=anandojha.002@gmail.com
+#SBATCH --mail-type=BEGIN,END
+
+module load cuda
+source $(conda info --base)/etc/profile.d/conda.sh
+conda activate {{conda_env}}
+source env.sh
+rm -f west.log
+w_run --n-workers 32 --work-manager processes "$@" &> west.log

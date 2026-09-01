@@ -1,0 +1,20 @@
+name: cryoweight
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - numpy
+  - scipy
+  - matplotlib
+  - mdtraj
+  - tqdm
+  - pandas
+  - MDAnalysis
+  - openmm=8.1
+  - cuda-version=12.1
+  - scikit-learn
+  - pytorch
+  - pyyaml          # WESTPA parses west.cfg with it
+  - h5py            # WESTPA west.h5 I/O
+  - westpa          # weighted ensemble engine
+  - pip
