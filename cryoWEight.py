@@ -37,6 +37,48 @@ LOCAL = False
 N_WORKERS = 4
 
 
+def _resolve_sigma_sign(reweight_dir):
+    """Direction of the reweighting along the leading CV, from the run0 weight shift.
+
+    The expectation maximization pulls weight toward the target, so the weighted mean
+    bin index moving up means the target lies above the prior and the bottleneck is
+    searched on the plus side, and moving down means the minus side.
+    """
+    import ast
+
+    pre = {}
+    with open(os.path.join(reweight_dir, "output", "mergd_bins_wght.txt")) as handle:
+        next(handle)
+        for line in handle:
+            parts = line.rsplit(None, 2)
+            if len(parts) == 3:
+                pre[
+                    ast.literal_eval(
+                        parts[0]
+                        if parts[0].startswith("(")
+                        else line[: line.rindex(parts[1])].strip()
+                    )
+                ] = float(parts[2])
+    post = {}
+    with open(os.path.join(reweight_dir, "output", "mergd_bins_wght_rescld.txt")) as handle:
+        for line in handle:
+            line = line.strip()
+            if line:
+                row = ast.literal_eval(re.sub(r"np\.\w+\(([^()]*)\)", r"\1", line))
+                post[tuple(row["Bin"])] = post.get(tuple(row["Bin"]), 0.0) + sum(row["Weights"])
+
+    def mean_x(dist):
+        total = sum(dist.values())
+        return sum(b[0] * w for b, w in dist.items()) / total
+
+    sign = "+" if mean_x(post) >= mean_x(pre) else "-"
+    print(
+        f"sigma_sign auto: prior mean bin {mean_x(pre):.2f}, "
+        f"posterior mean bin {mean_x(post):.2f}, resolved {sign!r}"
+    )
+    return sign
+
+
 def _sigma_priority(sigma_strategy, sigma_sign):
     """Build the σ-coordinate priority list for the configured sign (+ or -).
 
@@ -258,6 +300,18 @@ def run_init_reweight_simulation():
     shutil.copytree(os.path.join(R0_DIR, "bstates"), os.path.join(RUN1, "bstates"))
     # Copy the assembled WE_files and scripts tree for this system (system agnostic).
     _stage_we_files(RUN1)
+    global SIGMA_SIGN
+    if SIGMA_SIGN == "auto":
+        SIGMA_SIGN = _resolve_sigma_sign(R0_DIR)
+        # The staged runtime scripts read the sign from their config, so the resolved
+        # value is written back into the assembled tree.
+        import json
+
+        rc_path = os.path.join(SCRIPTS, "reweight_config.json")
+        rc = json.load(open(rc_path))
+        rc["sigma_sign"] = SIGMA_SIGN
+        with open(rc_path, "w") as handle:
+            json.dump(rc, handle, indent=2)
     x, y = _select_bottleneck_coords(
         os.path.join(R0_DIR, "output", "bottleneck_coordinates.txt"), SIGMA_STRATEGY, SIGMA_SIGN
     )
@@ -303,6 +357,8 @@ def run_init_reweight_simulation():
 
 
 def run_iterative_reweight_simulation(N):
+    if SIGMA_SIGN == "auto":
+        raise SystemExit("sigma_sign auto is resolved by init, run init before iterate")
     run_dir = f"run{N}"
     prev_re = f"reweight_run{N-1}"
     re_dir = f"reweight_run{N}"

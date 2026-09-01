@@ -2562,6 +2562,34 @@ def test_config_xml_round_trips_every_value_type():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_auto_sigma_sign_follows_the_weight_shift():
+    """The reweighting pulls weight toward the target, so the shift of the weighted
+    mean bin decides which side of the prior the bottleneck is searched on."""
+    import cryoWEight
+
+    def write_run(tmp, pre_rows, post_rows):
+        out = os.path.join(tmp, "output")
+        os.makedirs(out)
+        with open(os.path.join(out, "mergd_bins_wght.txt"), "w") as fh:
+            fh.write("BinCoord AllIndices TotalWeight\n")
+            for b, w in pre_rows:
+                fh.write(f"{b} 0 {w:.6e}\n")
+        with open(os.path.join(out, "mergd_bins_wght_rescld.txt"), "w") as fh:
+            for b, w in post_rows:
+                fh.write(str({"Bin": b, "Indices": [0], "Weights": [w]}) + "\n")
+
+    up = tempfile.mkdtemp()
+    down = tempfile.mkdtemp()
+    try:
+        write_run(up, [((2, 5), 0.5), ((4, 5), 0.5)], [((2, 5), 0.1), ((4, 5), 0.9)])
+        assert cryoWEight._resolve_sigma_sign(up) == "+"
+        write_run(down, [((2, 5), 0.5), ((4, 5), 0.5)], [((2, 5), 0.9), ((4, 5), 0.1)])
+        assert cryoWEight._resolve_sigma_sign(down) == "-"
+    finally:
+        shutil.rmtree(up, ignore_errors=True)
+        shutil.rmtree(down, ignore_errors=True)
+
+
 def _main():
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
     failed = []
