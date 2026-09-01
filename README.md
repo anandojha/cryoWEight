@@ -13,10 +13,13 @@ are still reached.
 ## Install
 
 ```bash
-mamba env create -f environment.yml
+bash install.sh
 conda activate cryoweight
-pip install -e .
 ```
+
+The installer detects the operating system, loads the cuda module on clusters that have
+one, and installs the CPU stack on a Mac. `mamba env create -f environment.yml` followed
+by `pip install -e .` does the same by hand.
 
 ## Run an example
 
@@ -25,8 +28,16 @@ bash examples/chignolin/run.sh
 ```
 
 Four examples ship under `examples/`, each 3 iterations of 2 subiterations. chignolin is
-self contained, the others generate their 1 ns seeding MD first. Output lands in
-`run*/merged_WE/fes.png`.
+self contained, the others generate their 1 ns seeding MD first. The run script detects
+whether a GPU is present and falls back to the CPU platform, so the same command works
+on a laptop. Output lands in `run*/merged_WE/fes.png`.
+
+| Example | One A100 | Laptop CPU |
+|---|---|---|
+| chignolin | 45 min | 1 to 2 h |
+| trpcage | 35 min | about 1 h |
+| adk | 55 min | not recommended |
+| ntl9 | 2 h | 2 to 3 h |
 
 ## Configure
 

@@ -1,37 +1,44 @@
 #!/bin/bash
 set -e
 
-echo "Installing mamba into base environment..."
-conda install -n base -c conda-forge mamba --yes
+OS=$(uname -s)
+ARCH=$(uname -m)
+echo "Installing for $OS $ARCH"
 
-echo "Removing existing cryoweight environment if it exists..."
+if [ "$OS" = "Linux" ] && command -v module >/dev/null 2>&1; then
+  module load cuda 2>/dev/null && echo "Loaded the cuda module" || echo "No cuda module, continuing"
+fi
+
+if ! command -v mamba >/dev/null 2>&1; then
+  echo "Installing mamba into the base environment"
+  conda install -n base -c conda-forge mamba --yes
+fi
+
+echo "Removing an existing cryoweight environment if present"
 conda env remove -n cryoweight --yes 2>/dev/null || true
 
-echo "Creating cryoweight environment..."
+echo "Creating the cryoweight environment"
 mamba env create -f environment.yml --yes
 
-echo "Pinning OpenMM to CUDA 12.1 for compatibility..."
-mamba install -n cryoweight -c conda-forge openmm=8.1 cuda-version=12.1 --yes
+if [ "$OS" = "Linux" ]; then
+  echo "Adding the CUDA build of OpenMM"
+  mamba install -n cryoweight -c conda-forge "cuda-version>=12.0" --yes || echo "CUDA packages unavailable, the CPU platform still works"
+fi
 
-echo "Installing WESTPA..."
-mamba install -n cryoweight -c conda-forge westpa --yes
+echo "Installing the package"
+conda run -n cryoweight pip install -e . --quiet
 
-echo "Verifying installation..."
-conda run -n cryoweight python -c "
-import numpy
-import scipy
-import matplotlib
-import mdtraj
-import tqdm
-import MDAnalysis
-import openmm
-import sklearn
-import pandas
-import torch
-import yaml
-import h5py
-import westpa
-print('All packages verified successfully')
-"
+echo "Verifying the installation"
+conda run -n cryoweight python - <<'PY'
+import numpy, scipy, matplotlib, mdtraj, tqdm, MDAnalysis, sklearn, pandas, torch, yaml, h5py
+import openmm, westpa
+from openmm import Platform
+names = [Platform.getPlatform(i).getName() for i in range(Platform.getNumPlatforms())]
+print("OpenMM", openmm.version.version, "platforms", names)
+print("All packages verified")
+PY
 
-echo "cryoweight environment installed successfully! Activate with: conda activate cryoweight"
+echo "Done. Activate with: conda activate cryoweight"
+if [ "$OS" = "Darwin" ]; then
+  echo "This machine has no CUDA. The example run scripts detect that and use the CPU platform."
+fi
