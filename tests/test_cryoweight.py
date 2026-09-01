@@ -2446,39 +2446,6 @@ def test_free_energy_plot_reads_the_topology_the_segments_propagated():
     assert seen["topology_file"] == "topology_explicit.pdb", seen["topology_file"]
 
 
-def _code_without_docstrings(path):
-    """Parse a module and drop every docstring, so two copies compare on behaviour alone."""
-    tree = ast.parse(io.open(path, encoding="utf-8").read())
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            body = node.body
-            if (
-                body
-                and isinstance(body[0], ast.Expr)
-                and isinstance(body[0].value, ast.Constant)
-                and isinstance(body[0].value.value, str)
-            ):
-                body.pop(0)
-    return ast.dump(tree)
-
-
-def test_the_staged_copies_of_a_module_do_not_drift_from_the_package():
-    """A compute node runs the shared copy, not the package, so a silent divergence
-    between them would only surface part way through a run."""
-    duplicated = {
-        "cv_families.py": ["shared/WE_files/common_files/cv_families.py"],
-        "build_system.py": [
-            "shared/init_MD/build_system.py",
-            "shared/WE_files/common_files/build_system.py",
-        ],
-    }
-    for name, copies in duplicated.items():
-        pkg = _code_without_docstrings(os.path.join(ROOT, "cryoweight", name))
-        for rel in copies:
-            other = _code_without_docstrings(os.path.join(ROOT, *rel.split("/")))
-            assert pkg == other, f"{rel} has drifted from cryoweight/{name}"
-
-
 def test_a_rendered_shell_script_is_left_executable():
     """WESTPA runs post_iter.sh itself, and a 0644 file is skipped with only a warning,
     which silently disables the archiving that keeps traj_segs from growing without bound."""

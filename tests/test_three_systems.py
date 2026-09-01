@@ -18,7 +18,7 @@ ROOT = os.path.dirname(HERE)
 SAMP = os.path.join(HERE, "three_test")
 ADK_COMMON = os.path.join(ROOT, "examples", "adk", "overrides", "WE_files", "common_files")
 NTL9_COMMON = os.path.join(ROOT, "examples", "ntl9", "overrides", "WE_files", "common_files")
-sys.path.insert(0, os.path.join(ROOT, "shared", "WE_files", "common_files"))
+sys.path.insert(0, os.path.join(ROOT, "cryoweight"))
 sys.path.insert(0, ROOT)
 from cryoweight import configio
 import build_system as bs, cv_families as cvf

@@ -154,8 +154,16 @@ def assemble(system: str, dest: str, stage_data: bool = True) -> list[str]:
             rel = os.path.relpath(os.path.join(dp, f), shared)
             _copy(os.path.join(shared, rel), os.path.join(dest, rel))
             written.append(rel)
-    # 1b. the package modules, staged as scripts/ so a run directory holds standalone
-    # copies and a compute node needs nothing installed.
+    # 1b. the package modules, staged wherever a loose script imports them, so one
+    # copy exists in the package and a compute node needs nothing installed.
+    pkg = os.path.join(HERE, "cryoweight")
+    for rel in (
+        os.path.join("init_MD", "build_system.py"),
+        os.path.join("WE_files", "common_files", "build_system.py"),
+        os.path.join("WE_files", "common_files", "cv_families.py"),
+    ):
+        _copy(os.path.join(pkg, os.path.basename(rel)), os.path.join(dest, rel))
+        written.append(rel)
     pkg = os.path.join(HERE, "cryoweight")
     for f in sorted(os.listdir(pkg)):
         if f.endswith(".py") and f != "__init__.py":

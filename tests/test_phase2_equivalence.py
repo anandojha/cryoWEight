@@ -18,7 +18,7 @@ from openmm import XmlSerializer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-sys.path.insert(0, os.path.join(ROOT, "shared", "WE_files", "common_files"))
+sys.path.insert(0, os.path.join(ROOT, "cryoweight"))
 import build_system as bs
 import cv_families as cvf
 
