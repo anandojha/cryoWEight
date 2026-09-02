@@ -10,17 +10,6 @@ steering the ensemble towards the conformational populations in the images. The
 likelihood acts in image space, so states with no overlap in collective variable space
 are still reached.
 
-## Install
-
-```bash
-bash install.sh
-conda activate cryoweight
-```
-
-The installer detects the operating system, loads the cuda module on clusters that have
-one, and installs the CPU stack on a Mac. `mamba env create -f environment.yml` followed
-by `pip install -e .` does the same by hand.
-
 ## Run the examples
 
 Step 1, get the code and install.
@@ -31,6 +20,9 @@ cd cryoWEight
 bash install.sh
 conda activate cryoweight
 ```
+
+The installer detects the operating system, loads the cuda module on clusters that have
+one, and installs the CPU stack on a Mac.
 
 Step 1 leaves the shell inside the cryoWEight directory, and steps 2 and 3 run from
 there. On a Mac do not cd cryoWEight again from inside it, since the case insensitive
