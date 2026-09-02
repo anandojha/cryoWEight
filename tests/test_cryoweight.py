@@ -2961,15 +2961,29 @@ def test_the_shared_cv_families_match_the_original_inline_cv():
 
 
 def _main():
+    import contextlib
+    import io as _io
+
+    verbose = "-v" in sys.argv
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
     failed = []
     for i, (name, fn) in enumerate(tests, 1):
+        buffer = _io.StringIO()
         try:
-            fn()
+            if verbose:
+                fn()
+            else:
+                # The pipeline stages narrate as they run, and a test run should show
+                # progress only. A failing test prints what it captured.
+                with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
+                    fn()
             print(f"[{i:3d}/{len(tests)}] pass  {name}", flush=True)
         except Exception as exc:
             failed.append((name, exc))
             print(f"[{i:3d}/{len(tests)}] FAIL  {name}: {type(exc).__name__}: {exc}", flush=True)
+            tail = buffer.getvalue().strip().splitlines()[-25:]
+            for line in tail:
+                print(f"        {line}")
     print(f"\n{len(tests) - len(failed)} passed, {len(failed)} failed, {len(tests)} total")
     return 1 if failed else 0
 
