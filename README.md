@@ -21,23 +21,40 @@ The installer detects the operating system, loads the cuda module on clusters th
 one, and installs the CPU stack on a Mac. `mamba env create -f environment.yml` followed
 by `pip install -e .` does the same by hand.
 
-## Run an example
+## Run the examples
+
+Step 1, get the code and install.
+
+```bash
+git clone https://github.com/anandojha/cryoWEight.git
+cd cryoWEight
+bash install.sh
+conda activate cryoweight
+```
+
+Step 2, run any example. Each is one command.
 
 ```bash
 bash examples/chignolin/run.sh
 ```
 
-Four examples ship under `examples/`, each 3 iterations of 2 subiterations. chignolin is
-self contained, the others generate their 1 ns seeding MD first. The run script detects
-whether a GPU is present and falls back to the CPU platform, so the same command works
-on a laptop. Output lands in `run*/merged_WE/fes.png`.
+```bash
+bash examples/trpcage/run.sh
+```
 
-| Example | One A100 | Laptop CPU |
-|---|---|---|
-| chignolin | 45 min | 1 to 2 h |
-| trpcage | 35 min | about 1 h |
-| adk | 55 min | not recommended |
-| ntl9 | 2 h | 2 to 3 h |
+```bash
+bash examples/ntl9/run.sh
+```
+
+```bash
+bash examples/adk/run.sh
+```
+
+Each script assembles the run tree, generates the 1 ns seeding trajectory when one is
+not shipped, runs 3 iterations of 2 weighted ensemble subiterations, and writes the
+free energy landscapes to `run*/merged_WE/fes.png` inside the example. A GPU is used
+when present and the CPU platform otherwise. Run adk on a GPU machine, the other three
+run anywhere.
 
 ## Configure
 
