@@ -10,9 +10,9 @@ steering the ensemble towards the conformational populations in the images. The
 likelihood acts in image space, so states with no overlap in collective variable space
 are still reached.
 
-## Run the examples
+## Get started
 
-Step 1, get the code and install.
+**Step 1, install.**
 
 ```bash
 git clone https://github.com/anandojha/cryoWEight.git
@@ -28,13 +28,13 @@ Step 1 leaves the shell inside the cryoWEight directory, and steps 2 and 3 run f
 there. On a Mac do not cd cryoWEight again from inside it, since the case insensitive
 filesystem lands in the cryoweight package instead.
 
-Step 2, run the tests.
+**Step 2, run the tests.**
 
 ```bash
 python tests/test_cryoweight.py
 ```
 
-Step 3, run any example.
+**Step 3, run the examples.**
 
 ```bash
 bash examples/chignolin/run.sh
