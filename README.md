@@ -32,32 +32,31 @@ bash install.sh
 conda activate cryoweight
 ```
 
+Step 1 leaves the shell inside the cryoWEight directory, and steps 2 and 3 run from
+there. On a Mac do not cd cryoWEight again from inside it, since the case insensitive
+filesystem lands in the cryoweight package instead.
+
 Step 2, run the tests.
 
 ```bash
-cd cryoWEight
 python tests/test_cryoweight.py
 ```
 
-Step 3, run any example from inside the repository.
+Step 3, run any example.
 
 ```bash
-cd cryoWEight
 bash examples/chignolin/run.sh
 ```
 
 ```bash
-cd cryoWEight
 bash examples/trpcage/run.sh
 ```
 
 ```bash
-cd cryoWEight
 bash examples/ntl9/run.sh
 ```
 
 ```bash
-cd cryoWEight
 bash examples/adk/run.sh
 ```
 
