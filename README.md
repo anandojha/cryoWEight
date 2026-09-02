@@ -75,5 +75,5 @@ tests/           unit tests and one end to end run
 ## Validate
 
 ```bash
-python tests/run_all.py
+python tests/test_cryoweight.py
 ```

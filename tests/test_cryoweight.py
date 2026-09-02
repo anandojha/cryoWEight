@@ -3,9 +3,8 @@
 Run standalone as python tests/test_cryoweight.py
 or under pytest as pytest tests/test_cryoweight.py
 
-These cover the pieces whose correctness can be checked against an analytic answer and
-need no trajectory data. The end to end equivalence against the original per system code
-lives in test_three_systems.py and test_phase2_equivalence.py.
+Every test lives here, from the unit level checks through the end to end pipeline run
+and the equivalence of the shared code against the original per system scripts.
 """
 
 import ast
@@ -2597,6 +2596,371 @@ def test_iteration_stages_report_done_only_on_real_artifacts():
         assert cryoWEight._reweight_done(re_dir)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+# the equivalence and pipeline suites, formerly separate files
+
+import json as _json
+import subprocess as _subprocess
+
+import mdtraj
+import mdtraj as md
+from openmm import XmlSerializer
+from openmm.app import CutoffNonPeriodic, ForceField, HBonds, PDBFile, PME
+from openmm.unit import nanometer
+
+from cryoweight import build_system as bs
+from cryoweight import configio
+
+E2E_PKG = os.path.join(ROOT, "cryoweight")
+TS_SAMP = os.path.join(HERE, "three_test")
+ADK_COMMON = os.path.join(ROOT, "examples", "adk", "overrides", "WE_files", "common_files")
+NTL9_COMMON = os.path.join(ROOT, "examples", "ntl9", "overrides", "WE_files", "common_files")
+CHIG_BSTATE = os.path.join(
+    ROOT, "systems", "chignolin", "overrides", "WE_files", "common_files", "bstate.pdb"
+)
+CHIG_TRAJ = os.path.join(ROOT, "systems", "chignolin", "init_MD", "chignolin.dcd")
+CHIG_TOP = os.path.join(ROOT, "systems", "chignolin", "init_MD", "chignolin.pdb")
+
+
+# The model trajectory spans RMSD 0.75 to 7.53 A and Rg 5.01 to 7.98 A, so every
+# coordinate range, bin edge and axis limit has to move off the chignolin numbers.
+E2E_OVERRIDES = {
+    "topology_analysis": "model_chignolin.pdb",
+    "topology_we": "model_chignolin.pdb",
+    "topology_file": "model_chignolin.pdb",
+    "init_md_dir": "../init_MD",
+    "init_md_dcd": "model_chignolin.dcd",
+    "init_md_max_frames": 40,
+    "traj_file": "model_target.dcd",
+    "out_boltz_dcd": "image_sel.dcd",
+    "likelihood": "cv",
+    "cv_sigma": 1.0,
+    "cv_target_rmsd_lo": 5.5,
+    "cv_target_rmsd_hi": 9.0,
+    "bin_x_min": 0,
+    "bin_x_max": 8,
+    "bin_y_min": 4,
+    "bin_y_max": 9,
+    "bin_width": 1.0,
+    "xmin": 0,
+    "xmax": 8,
+    "ymin": 4,
+    "ymax": 9,
+    "x_range": [0.0, 8.0],
+    "y_range": [4.0, 9.0],
+    "heatmap_xticks": [0, 8, 2],
+    "heatmap_yticks": [4, 9, 1],
+    "cluster_axis_limit": 9,
+    "fe_nbins": [20, 20],
+    "nbins": [20, 20],
+    "bottleneck_nbins": [40, 40],
+    "step": 2,
+    "run_plot_free_energy": False,
+    "em_iterations": 200,
+}
+
+
+def _e2e_build_run(dest):
+    """Lay out a reweight_run0 directory the way cryoWEight.py stages one."""
+    init_md = os.path.join(dest, "init_MD")
+    run0 = os.path.join(dest, "reweight_run0")
+    data = os.path.join(run0, "data")
+    for d in (init_md, data):
+        os.makedirs(d)
+    for name, target in (
+        ("model_chignolin.pdb", init_md),
+        ("model_chignolin.dcd", init_md),
+        ("model_chignolin.pdb", data),
+        ("model_target.dcd", data),
+    ):
+        shutil.copy(os.path.join(TESTDATA, name), os.path.join(target, name))
+    # plot_overlap draws the selected target beside the seeding ensemble.
+    shutil.copy(os.path.join(TESTDATA, "model_target.dcd"), os.path.join(data, "image_sel.dcd"))
+    for name in (
+        "reweight.py",
+        "cryoER_core.py",
+        "cv_families.py",
+        "likelihoods.py",
+        "build_system.py",
+    ):
+        src = os.path.join(E2E_PKG, name)
+        if os.path.exists(src):
+            shutil.copy(src, run0)
+    cfg = dict(
+        configio.read_xml(os.path.join(ROOT, "systems", "chignolin_cv.xml"))["reweight_config"]
+    )
+    cfg.update(E2E_OVERRIDES)
+    with open(os.path.join(run0, "reweight_config.json"), "w") as fh:
+        _json.dump(cfg, fh, indent=2)
+    return run0
+
+
+def test_the_seeding_iteration_runs_from_one_end_to_the_other():
+    """Every stage, from the seeding trajectory through to the basis states for WESTPA.
+
+    main() is called in process rather than through a subprocess so that a coverage run
+    can see which lines of the pipeline it reaches. The subprocess form is what the driver
+    actually does, and test_cryoweight.py asserts the driver still invokes it that way.
+    """
+    sys.path.insert(0, E2E_PKG)
+    import reweight
+
+    tmp = tempfile.mkdtemp()
+    cwd = os.getcwd()
+    try:
+        run0 = _e2e_build_run(tmp)
+        os.chdir(run0)
+        reweight.load_config()
+        reweight.main(run0=True)
+        os.chdir(cwd)
+
+        weights = np.loadtxt(os.path.join(run0, "output", "rescaled_weights_all.txt"))
+        assert weights.ndim == 1 and len(weights) > 1
+        assert abs(weights.sum() - 1.0) < 1e-6
+        assert bool(np.all(weights >= 0.0))
+
+        # bstates.txt is what WESTPA reads to start a run, one line per basis state.
+        with open(os.path.join(run0, "bstates", "bstates.txt")) as fh:
+            rows = [l for l in fh if l.strip() and not l.startswith("#")]
+        assert len(rows) == len(weights)
+
+        # The sigma levels are what cryoWEight.py patches into west.cfg.
+        with open(os.path.join(run0, "output", "bottleneck_coordinates.txt")) as fh:
+            bottleneck = fh.read()
+        assert "Maximum Sampling" in bottleneck
+        assert "σ" in bottleneck
+
+        for produced in (
+            "output/pcoord_plot.png",
+            "bstates/pcoord.init",
+            "output/selected_frames.dcd",
+        ):
+            path = os.path.join(run0, produced)
+            assert os.path.exists(path) and os.path.getsize(path) > 0, produced
+    finally:
+        os.chdir(cwd)
+        reweight.CFG = {}
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+# solvated/protein structure for build_system (boxed for explicit PME)
+TS_STRUCT = {
+    "adk": os.path.join(ADK_COMMON, "bstate.pdb"),
+    "chignolin": os.path.join(
+        ROOT, "systems", "chignolin", "overrides", "WE_files", "common_files", "bstate.pdb"
+    ),
+    "ntl9": os.path.join(NTL9_COMMON, "bstate.pdb"),
+}
+
+
+def _ts_original_system(name, ff, top):
+    if name in ("adk", "chignolin"):
+        return ff.createSystem(
+            top, nonbondedMethod=PME, nonbondedCutoff=1 * nanometer, constraints=HBonds
+        )
+    return ff.createSystem(
+        top,
+        nonbondedMethod=CutoffNonPeriodic,
+        constraints=HBonds,
+        nonbondedCutoff=2 * nanometer,
+        soluteDielectric=1.0,
+        solventDielectric=78.5,
+    )
+
+
+def _ts_orig_cv(traj, ref, cvcfg):
+    if cvcfg["cv_family"] == "rmsd_rg":
+        ai = ref.topology.select(cvcfg.get("cv_atom_selection", "name CA"))
+        r = np.asarray(md.rmsd(traj, ref, atom_indices=ai)) * 10
+        rg = np.asarray(md.compute_rg(traj.atom_slice(ai))) * 10
+        return np.column_stack((r, rg))
+    g = cvcfg["resid_groups"]
+    sel = lambda s: ref.topology.select(f"name CA and resid {s}")
+    tn = cvf._calculate_angles(traj, sel(g["core_lid"]), sel(g["core_nmp"]), sel(g["nmp"]))
+    tl = cvf._calculate_angles(traj, sel(g["core_lid_angle"]), sel(g["core_lid"]), sel(g["lid"]))
+    return np.column_stack((tn, tl))
+
+
+def test_the_three_real_systems_reproduce_their_originals():
+    """The shared builder and CV reproduce each original system exactly on real data."""
+
+    print(f"{'system':10} {'validate':>10} {'build_system':>14} {'cv_of (real data)':>22}")
+    print("-" * 62)
+    ok = True
+    for s in ["adk", "chignolin", "ntl9"]:
+        cfg = configio.read_xml(os.path.join(ROOT, "systems", f"{s}.xml"))
+        rc = cfg["reweight_config"]
+
+        # (1) validate against the original run tree (corpus), if available
+        corpus = os.path.join(ROOT, "..", "corpus", s)
+        if os.path.isdir(corpus):
+            v = _subprocess.run(
+                [
+                    sys.executable,
+                    os.path.join(ROOT, "assemble.py"),
+                    "--system",
+                    s,
+                    "--validate",
+                    corpus,
+                ],
+                capture_output=True,
+                text=True,
+            )
+            v_ok = v.returncode == 0
+            v_lbl = "OK" if v_ok else "FAIL"
+        else:
+            v_ok = True
+            v_lbl = "skip"  # corpus not shipped with the repo
+
+        # (2) build_system XML equivalence
+        pdb = PDBFile(TS_STRUCT[s])
+        new = bs.build_system(bs.build_forcefield(rc), pdb.topology, rc)
+        old = _ts_original_system(s, ForceField(rc["ff_main"], rc["ff_solvent"]), pdb.topology)
+        b_ok = XmlSerializer.serialize(new) == XmlSerializer.serialize(old)
+
+        # (3) cv_of on a real per system image sample
+        traj = md.load(
+            os.path.join(TS_SAMP, f"{s}_img64.dcd"), top=os.path.join(TS_SAMP, f"{s}_imgtop.pdb")
+        )
+        ref = md.load(os.path.join(TS_SAMP, f"{s}_imgtop.pdb"))
+        new_cv = cvf.cv_of(traj, ref, rc["cv_cfg"])
+        old_cv = _ts_orig_cv(traj, ref, rc["cv_cfg"])
+        c_ok = np.array_equal(new_cv, old_cv)
+
+        ok &= v_ok and b_ok and c_ok
+        print(
+            f"{s:10} {v_lbl:>10} {('OK '+str(new.getNumParticles())+'p') if b_ok else 'FAIL':>14} "
+            f"{('OK '+rc['cv_cfg']['cv_family']) if c_ok else 'FAIL':>22}"
+        )
+    print("-" * 62)
+    print("ALL THREE SYSTEMS PASS" if ok else "FAILURES PRESENT")
+    assert ok, "a real system diverged from its original"
+
+
+P2_SYSTEMS = {
+    "adk": dict(
+        pdb=os.path.join(ADK_COMMON, "bstate.pdb"),
+        solvent_model="explicit",
+        ff_main="amber14-all.xml",
+        ff_solvent="amber14/tip3p.xml",
+        nonbonded_cutoff_nm=1,
+    ),
+    "chignolin": dict(
+        pdb=CHIG_BSTATE,
+        solvent_model="explicit",
+        ff_main="amber14-all.xml",
+        ff_solvent="amber14/tip3p.xml",
+        nonbonded_cutoff_nm=1,
+    ),
+    "ntl9": dict(
+        pdb=os.path.join(NTL9_COMMON, "bstate.pdb"),
+        solvent_model="implicit",
+        ff_main="amber14-all.xml",
+        ff_solvent="implicit/obc2.xml",
+        nonbonded_cutoff_nm=2,
+        solute_dielectric=1.0,
+        solvent_dielectric=78.5,
+    ),
+}
+
+
+def _p2_original_system(name, cfg, top):
+    ff = ForceField(cfg["ff_main"], cfg["ff_solvent"])
+    if name in ("adk", "chignolin"):  # explicit solvent, verbatim from the original production.py
+        return ff.createSystem(
+            top, nonbondedMethod=PME, nonbondedCutoff=1 * nanometer, constraints=HBonds
+        )
+    return ff.createSystem(
+        top,
+        nonbondedMethod=CutoffNonPeriodic,
+        constraints=HBonds,
+        nonbondedCutoff=2 * nanometer,
+        soluteDielectric=1.0,
+        solventDielectric=78.5,
+    )
+
+
+def test_the_shared_system_factory_matches_the_original_inline_builds():
+    """Each System built by the factory serializes to the same XML as the original call."""
+    print("== build_system equivalence ==")
+    for name, cfg in P2_SYSTEMS.items():
+        pdb = PDBFile(cfg["pdb"])
+        cfg = dict(cfg, constraints="HBonds")
+        ff = bs.build_forcefield(cfg)
+        new = bs.build_system(ff, pdb.topology, cfg)
+        old = _p2_original_system(name, cfg, pdb.topology)
+        xn, xo = XmlSerializer.serialize(new), XmlSerializer.serialize(old)
+        ok = xn == xo
+        print(
+            f"   {name:10} {'OK' if ok else 'FAIL'}  ({pdb.topology.getNumAtoms()} atoms, system XML {len(xn)} chars)"
+        )
+        assert ok, f"{name}: build_system XML differs from original"
+
+
+# original inline CV logic, verbatim from the per system cv.py
+def _p2_orig_rmsd_rg(parent, seg, reference, sel="name CA"):
+    ai = reference.topology.select(sel)
+    rmsd_parent = mdtraj.rmsd(parent, reference, atom_indices=ai)
+    rmsd_traj = mdtraj.rmsd(seg, reference, atom_indices=ai)
+    r = np.asarray(np.append(rmsd_parent, rmsd_traj)) * 10
+    rgp = mdtraj.compute_rg(parent.atom_slice(ai))
+    rgt = mdtraj.compute_rg(seg.atom_slice(ai))
+    rg = np.asarray(np.append(rgp, rgt)) * 10
+    return np.column_stack((r, rg))
+
+
+def _p2_orig_adk(parent, seg, reference, g):
+    sel = lambda spec: reference.topology.select(f"name CA and resid {spec}")
+    nmp, cnmp, clid, lid, cla = (
+        sel(g["nmp"]),
+        sel(g["core_nmp"]),
+        sel(g["core_lid"]),
+        sel(g["lid"]),
+        sel(g["core_lid_angle"]),
+    )
+    comb = parent.join(seg)
+    tn = cvf._calculate_angles(comb, clid, cnmp, nmp)
+    tl = cvf._calculate_angles(comb, cla, clid, lid)
+    return np.column_stack((tn, tl))
+
+
+def test_the_shared_cv_families_match_the_original_inline_cv():
+    """Both CV families reproduce the original inline math exactly on real structures."""
+    print("== cv_families equivalence ==")
+    # rmsd_rg via chignolin trajectory
+    traj = mdtraj.load(CHIG_TRAJ, top=CHIG_TOP)
+    ref = traj[0]
+    parent, seg = traj[0:3], traj[3:6]
+    cfg = dict(cv_family="rmsd_rg", cv_atom_selection="name CA")
+    new = cvf.compute(parent, seg, ref, cfg)
+    old = _p2_orig_rmsd_rg(parent, seg, ref)
+    print(f"   rmsd_rg/chignolin {'OK' if np.array_equal(new, old) else 'FAIL'}  shape={new.shape}")
+    assert np.array_equal(new, old)
+    # rmsd_rg via ntl9 (reference = folded.pdb, distinct from topology)
+    nt = mdtraj.load(os.path.join(NTL9_COMMON, "bstate.pdb"))
+    nref = mdtraj.load(os.path.join(NTL9_COMMON, "folded.pdb"))
+    cfg = dict(cv_family="rmsd_rg", cv_atom_selection="name CA")
+    new = cvf.compute(nt, nt, nref, cfg)
+    old = _p2_orig_rmsd_rg(nt, nt, nref)
+    print(f"   rmsd_rg/ntl9      {'OK' if np.array_equal(new, old) else 'FAIL'}  shape={new.shape}")
+    assert np.array_equal(new, old)
+    # adk_angles
+    ad = mdtraj.load(os.path.join(ADK_COMMON, "bstate.pdb"))
+    groups = dict(
+        nmp="35 to 55",
+        core_nmp="90 to 100",
+        core_lid="115 to 125",
+        lid="125 to 153",
+        core_lid_angle="179 to 185",
+    )
+    cfg = dict(cv_family="adk_angles", resid_groups=groups)
+    new = cvf.compute(ad, ad, ad, cfg)
+    old = _p2_orig_adk(ad, ad, ad, groups)
+    print(
+        f"   adk_angles/adk    {'OK' if np.array_equal(new, old) else 'FAIL'}  shape={new.shape}  sample={new[0]}"
+    )
+    assert np.array_equal(new, old)
 
 
 def _main():

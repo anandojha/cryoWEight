@@ -45,11 +45,8 @@ jobs:
       - name: Show what was installed
         run: conda list | grep -E 'torch|mdtraj|openmm|mdanalysis'
 
-      - name: Unit tests
+      - name: Tests
         run: coverage run tests/test_cryoweight.py
-
-      - name: End to end run on model data
-        run: coverage run -a tests/test_end_to_end.py
 
       - name: Coverage report
         run: |
