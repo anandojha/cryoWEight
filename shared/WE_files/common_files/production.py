@@ -17,7 +17,10 @@ integrator = LangevinIntegrator(
     cfg["timestep_ps"] * picoseconds,
 )
 integrator.setRandomNumberSeed(RAND)
-platform = Platform.getPlatformByName(cfg["platform"])
+try:
+    platform = Platform.getPlatformByName(cfg["platform"])
+except Exception:
+    platform = Platform.getPlatformByName("CPU")
 simulation = Simulation(pdb.topology, system, integrator, platform)
 simulation.context.setPositions(pdb.positions)
 simulation.loadState(cfg["restart_state"])

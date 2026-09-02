@@ -35,7 +35,10 @@ integrator = LangevinIntegrator(
     CFG["friction_per_ps"] / picoseconds,
     CFG["timestep_ps"] * picoseconds,
 )
-platform = Platform.getPlatformByName(CFG["platform"])
+try:
+    platform = Platform.getPlatformByName(CFG["platform"])
+except Exception:
+    platform = Platform.getPlatformByName("CPU")
 simulation = Simulation(topology, system, integrator, platform)
 simulation.context.setPositions(positions)
 # Perform energy minimization

@@ -17,8 +17,10 @@ export NUMACTL=$(which numactl)
 export PYTHON=$(which python)           # so runseg.sh can use “$PYTHON -m westraj.cli.map_worker”
 
 # NVIDIA MPS (optional but recommended) 
-if ! pgrep -x nvidia-cuda-mps-control >/dev/null; then
-  nvidia-cuda-mps-control -d
+if command -v nvidia-cuda-mps-control >/dev/null 2>&1; then
+  if ! pgrep -x nvidia-cuda-mps-control >/dev/null; then
+    nvidia-cuda-mps-control -d
+  fi
 fi
 
 # Tuning knobs for multi‐process GPU sharing
