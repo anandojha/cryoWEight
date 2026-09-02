@@ -40,21 +40,6 @@ except ImportError:
     )
 
 
-def _plot_pixel_intensity_histogram(images, path):
-    """Histogram of pixel intensity over the whole synthetic particle set."""
-    fig = plt.figure(figsize=(6, 4), dpi=500)
-    hist, edges = np.histogram(images.flatten(), bins=100)
-    ax = fig.add_subplot(111)
-    ax.plot(edges[:-1], hist, color="k")
-    ax.set_xlabel("Pixel intensity")
-    ax.set_ylabel("Counts")
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    plt.tight_layout()
-    plt.savefig(path, dpi=500, bbox_inches="tight")
-    plt.close(fig)
-
-
 def _plot_image_grid(images, path):
     """Grid of the first sixteen particles, on a shared intensity scale."""
     # The 1st and 99th percentiles set the scale so that a few extreme pixels cannot
@@ -66,7 +51,7 @@ def _plot_image_grid(images, path):
         ax.imshow(images[i], cmap="gray", vmin=vmin, vmax=vmax)
         ax.axis("off")
     plt.tight_layout()
-    plt.savefig(path, dpi=500, bbox_inches="tight")
+    plt.savefig(path, dpi=500, bbox_inches="tight", pad_inches=0.3)
     plt.close(fig)
 
 
@@ -88,7 +73,6 @@ def cryoem(ctx):
         device=ctx["device"],
         batch_size=cfg["batch_size"],
     )
-    _plot_pixel_intensity_histogram(images, os.path.join(out, "hist_pix.png"))
     _plot_image_grid(images, os.path.join(out, "imgs_grid.png"))
     # Each particle is a projection of a randomly oriented copy of the reference, so the
     # structures must be brought into the same frame before any pixel comparison means

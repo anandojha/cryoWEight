@@ -672,39 +672,6 @@ def test_the_bstate_stages_return_quietly_when_their_inputs_are_absent():
             shutil.rmtree(tmp, ignore_errors=True)
 
 
-def test_the_reweight_free_energy_surface_is_written():
-    """reweight.py carries its own copy of the free energy plot, gated off for run0."""
-    tmp = tempfile.mkdtemp()
-    try:
-        shutil.copy(MODEL_TOP, tmp)
-        shutil.copy(MODEL_TARGET, tmp)
-        reweight.CFG = {
-            "cv_family": "rmsd_rg",
-            "cv_atom_selection": "name CA",
-            "cv_xlabel": "RMSD",
-            "cv_ylabel": "Rg",
-            "xmin": 0,
-            "xmax": 10,
-            "ymin": 4,
-            "ymax": 9,
-        }
-        reweight.plot_free_energy(
-            data_dir=tmp,
-            output_directory=tmp,
-            trajectory_file="model_target.dcd",
-            topology_file="model_chignolin.pdb",
-            kB=0.008314,
-            T=300.0,
-            output_file="fes.png",
-            nbins=(10, 10),
-        )
-        out = os.path.join(tmp, "fes.png")
-        assert os.path.exists(out) and os.path.getsize(out) > 0
-    finally:
-        reweight.CFG = {}
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
 def _bottleneck(tmp, neg_fallback):
     """Run get_bottleneck over the model target and return the labels it emitted."""
     shutil.copy(MODEL_TOP, tmp)
@@ -726,7 +693,6 @@ def _bottleneck(tmp, neg_fallback):
         dcd_file="model_target.dcd",
         topo_file="model_chignolin.pdb",
         output_dir=tmp,
-        fig_bottleneck="bottleneck.png",
         nbins=(20, 20),
         sigma_mults=[-3, -2, -1, 1, 2, 3],
         bottleneck_file="bottleneck_coordinates.txt",
@@ -770,7 +736,7 @@ def test_the_bottleneck_file_always_starts_from_the_free_energy_minimum():
     try:
         labels = _bottleneck(tmp, neg_fallback=False)
         assert labels[0] == "Maximum Sampling"
-        assert os.path.getsize(os.path.join(tmp, "bottleneck.png")) > 0
+        assert os.path.getsize(os.path.join(tmp, "bottleneck_coordinates.txt")) > 0
     finally:
         reweight.CFG = {}
         shutil.rmtree(tmp, ignore_errors=True)
@@ -2659,7 +2625,6 @@ E2E_OVERRIDES = {
     "nbins": [20, 20],
     "bottleneck_nbins": [40, 40],
     "step": 2,
-    "run_plot_free_energy": False,
     "em_iterations": 200,
 }
 
@@ -2678,7 +2643,7 @@ def _e2e_build_run(dest):
         ("model_target.dcd", data),
     ):
         shutil.copy(os.path.join(TESTDATA, name), os.path.join(target, name))
-    # plot_overlap draws the selected target beside the seeding ensemble.
+    # The Boltzmann selected target set the reweight stage reads.
     shutil.copy(os.path.join(TESTDATA, "model_target.dcd"), os.path.join(data, "image_sel.dcd"))
     for name in (
         "reweight.py",
@@ -2735,7 +2700,6 @@ def test_the_seeding_iteration_runs_from_one_end_to_the_other():
         assert "σ" in bottleneck
 
         for produced in (
-            "output/pcoord_plot.png",
             "bstates/pcoord.init",
             "output/selected_frames.dcd",
         ):

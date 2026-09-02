@@ -106,7 +106,6 @@
       <lid>125 to 153</lid>
       <nmp>35 to 55</nmp>
     </resid_groups>
-    <run_plot_free_energy type="bool">true</run_plot_free_energy>
     <select_mode>angle_window</select_mode>
     <sigma type="float">1.5</sigma>
     <sigma_mults type="list">[-3, -2, -1, 1, 2, 3]</sigma_mults>

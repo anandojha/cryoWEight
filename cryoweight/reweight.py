@@ -27,30 +27,15 @@ from openmm.app import (
 )
 from openmm import LangevinIntegrator, Platform, LocalEnergyMinimizer, XmlSerializer
 from openmm.unit import kelvin, picoseconds, nanometer, kilojoule_per_mole
-from scipy.ndimage import minimum_filter, generate_binary_structure
-from matplotlib.colors import ListedColormap
-from sklearn.neighbors import KernelDensity
-from matplotlib.colors import BoundaryNorm
-from MDAnalysis.analysis import align
-from matplotlib.patches import Patch
-from scipy.special import logsumexp
 from collections import defaultdict
-import matplotlib.pyplot as plt
-import matplotlib as mpl
 import MDAnalysis as mda
-from tqdm import tqdm
-import pandas as pd
 import mdtraj as md
 import numpy as np
-import subprocess
 import shutil
 import pickle
-import heapq
 import torch
-import time
 import glob
 import sys
-import csv
 import os
 import json
 import io
@@ -114,131 +99,6 @@ def get_init_traj(
     truncated_traj.save_dcd(traj_output_path)
 
 
-def plot_free_energy(
-    data_dir, output_directory, trajectory_file, topology_file, kB, T, output_file, nbins
-):
-    """Plot the free energy surface of a trajectory over the collective variables."""
-    traj_path = os.path.join(data_dir, trajectory_file)
-    top_path = os.path.join(data_dir, topology_file)
-    fig_output_path = os.path.join(output_directory, output_file)
-    traj = md.load(traj_path, top=top_path)
-    ref = md.load(top_path)
-    cv = cv_families.cv_of(traj, ref, CFG)
-    rmsd = cv[:, 0]
-    rg = cv[:, 1]
-    hist, xedges, yedges = np.histogram2d(rmsd, rg, bins=nbins, density=True)
-    # Compute the free energy surface F = -kB T ln P
-    F = -kB * T * np.log(hist + 1e-12)
-    F -= F.min()  # shift minimum to zero
-    # Map each frame to its free energy
-    xidx = np.clip(np.digitize(rmsd, xedges) - 1, 0, nbins[0] - 1)
-    yidx = np.clip(np.digitize(rg, yedges) - 1, 0, nbins[1] - 1)
-    fe_point = F[xidx, yidx]
-    # Scatter plot of F(rmsd, Rg)
-    fig, ax = plt.subplots(figsize=(12, 8))
-    sc = ax.scatter(rmsd, rg, c=fe_point, cmap="jet", s=20, alpha=0.8, edgecolors="none")
-    cbar = plt.colorbar(sc, ax=ax)
-    cbar.set_label("Free Energy (kJ/mol)", fontsize=16)
-    cbar.ax.tick_params(labelsize=16)
-    ax.set_xlabel(CFG["cv_xlabel"], fontsize=20)
-    ax.set_ylabel(CFG["cv_ylabel"], fontsize=20)
-    ax.set_xlim(CFG["xmin"], CFG["xmax"])
-    ax.set_ylim(CFG["ymin"], CFG["ymax"])
-    ax.tick_params(labelsize=16)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    plt.tight_layout()
-    plt.savefig(fig_output_path, dpi=500)
-    plt.close(fig)
-
-
-def plot_overlap(
-    data_dir,
-    output_directory,
-    topology,
-    initial_md,
-    selected_traj,
-    output_file,
-    bw,
-    n_levels,
-    nx,
-    ny,
-    xmin,
-    xmax,
-    ymin,
-    ymax,
-):
-    """Overlay density contours of the seeding ensemble and the selected target ensemble."""
-    top_path = os.path.join(data_dir, topology)
-    init_path = os.path.join(output_directory, initial_md)
-    sel_path = os.path.join(data_dir, selected_traj)
-    out_path = os.path.join(output_directory, output_file)
-    ref = md.load(top_path)
-    init_tr = md.load(init_path, top=top_path)
-    sel_tr = md.load(sel_path, top=top_path)
-    cv_init = cv_families.cv_of(init_tr, ref, CFG)
-    cv_sel = cv_families.cv_of(sel_tr, ref, CFG)
-    rmsd_init, rg_init = cv_init[:, 0], cv_init[:, 1]
-    rmsd_sel, rg_sel = cv_sel[:, 0], cv_sel[:, 1]
-    # Fit 2D Gaussian KDEs
-    data_init = np.vstack([rmsd_init, rg_init]).T
-    data_sel = np.vstack([rmsd_sel, rg_sel]).T
-    kde_init = KernelDensity(kernel="tophat", bandwidth=bw).fit(data_init)
-    kde_sel = KernelDensity(kernel="tophat", bandwidth=bw).fit(data_sel)
-    # Prepare a fine grid
-    xgrid = np.linspace(xmin, xmax, nx)
-    ygrid = np.linspace(ymin, ymax, ny)
-    X, Y = np.meshgrid(xgrid, ygrid)
-    pts = np.vstack([X.ravel(), Y.ravel()]).T
-    # Evaluate densities
-    Z_init = np.exp(kde_init.score_samples(pts)).reshape(ny, nx)
-    Z_sel = np.exp(kde_sel.score_samples(pts)).reshape(ny, nx)
-    # Choose levels *without* skipping
-    levels_init = np.linspace(Z_init.min(), Z_init.max(), n_levels)[1:]
-    levels_sel = np.linspace(Z_sel.min(), Z_sel.max(), n_levels)[1:]
-    fig, ax = plt.subplots(figsize=(8, 6), facecolor="white")
-    ax.set_facecolor("white")
-    # dashed contours only
-    ax.contour(
-        X,
-        Y,
-        Z_init,
-        levels=levels_init,
-        colors="darkgreen",
-        linestyles="--",
-        linewidths=1.0,
-        zorder=1,
-    )
-    ax.contour(
-        X,
-        Y,
-        Z_sel,
-        levels=levels_sel,
-        colors="darkorange",
-        linestyles="--",
-        linewidths=1.0,
-        zorder=2,
-    )
-    # legend
-    legend_elems = [
-        Patch(edgecolor="darkgreen", facecolor="white", linestyle="--", label="MD Distribution"),
-        Patch(
-            edgecolor="darkorange", facecolor="white", linestyle="--", label="Selected Distribution"
-        ),
-    ]
-    ax.legend(handles=legend_elems, fontsize=12, loc="upper right")
-    ax.set_xlim(xmin, xmax)
-    ax.set_ylim(ymin, ymax)
-    ax.set_xlabel(CFG["cv_xlabel"], fontsize=16)
-    ax.set_ylabel(CFG["cv_ylabel"], fontsize=16)
-    ax.tick_params(labelsize=14)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    plt.tight_layout()
-    plt.savefig(out_path, dpi=500)
-    plt.close(fig)
-
-
 def initialize(
     data_dir,
     output_directory,
@@ -285,26 +145,6 @@ def initialize(
     np.savetxt(index_file_path, selected_indices, fmt="%d")
     with open(frame_count_file_path, "w") as f:
         f.write(str(len(selected_indices)))
-    plt.figure(figsize=(8, 6))
-    plt.scatter(rmsd, rg, color="black", s=30, alpha=0.8, label="All Frames")
-    plt.scatter(
-        rmsd[selected_indices],
-        rg[selected_indices],
-        color="red",
-        s=30,
-        alpha=0.8,
-        label="Selected Frames",
-        linewidth=1.5,
-    )
-    # Labels and aesthetics
-    plt.xlabel(CFG["cv_xlabel"], fontsize=14)
-    plt.ylabel(CFG["cv_ylabel"], fontsize=14)
-    plt.legend(frameon=False, fontsize=12)
-    ax = plt.gca()
-    ax.spines["right"].set_visible(False)
-    ax.spines["top"].set_visible(False)
-    plt.savefig(os.path.join(output_directory, "initialized_cvs.png"), dpi=500)
-    # plt.show()
     num_selected = len(selected_indices)
     print(f"Total number of selected frames at the end: {num_selected}")
     print(f"Saved {num_selected} frames to {output_dcd_path}")
@@ -364,7 +204,6 @@ def process_weights_from_sim(
     merged_details_pickle,
     simulation_traj,
     initial_weights,
-    plot_filename,
 ):
     """Bin the weighted trajectory in the collective variable space and merge each bin onto one representative frame."""
     data_dir = os.path.abspath(data_dir)
@@ -376,7 +215,6 @@ def process_weights_from_sim(
     bin_coordinates_weights = os.path.join(output_directory, bin_coordinates_weights)
     occupied_bins_summary = os.path.join(output_directory, occupied_bins_summary)
     simulation_traj = os.path.join(output_directory, simulation_traj)
-    plot_filename = os.path.join(output_directory, plot_filename)
     merged_details_file = os.path.join(output_directory, merged_details_file)
     merged_details_pickle = os.path.join(output_directory, merged_details_pickle)
     initial_weights = os.path.join(output_directory, initial_weights)
@@ -426,36 +264,6 @@ def process_weights_from_sim(
         for bin_coord, indices in bin_occupancy.items():
             f.write(f"Bin {bin_coord}: {len(indices)} structures\n")
     print(f"Data saved to {bin_coordinates_weights} and {occupied_bins_summary}")
-    occupancy_grid = np.zeros((num_x_bins, num_y_bins))
-    # Populate the occupancy grid with the count of points in each bin
-    for bin_coord, indices in bin_occupancy.items():
-        rmsd_bin, rg_bin = bin_coord
-        occupancy_grid[rmsd_bin, rg_bin] = len(indices)
-    cmap = plt.cm.plasma
-    cmap.set_under("white")
-    plt.figure(figsize=(8, 6), facecolor="white")
-    im = plt.imshow(
-        occupancy_grid.T,
-        origin="lower",
-        aspect="auto",
-        cmap=cmap,
-        extent=[CFG["bin_x_min"], CFG["bin_x_max"], CFG["bin_y_min"], CFG["bin_y_max"]],
-        vmin=1,
-        vmax=occupancy_grid.max(),
-    )
-    colorbar = plt.colorbar(im, label="Number of Frames per Bin")
-    colorbar.set_ticks(range(1, int(occupancy_grid.max()) + 1))
-    colorbar.ax.yaxis.label.set_size(16)
-    colorbar.ax.tick_params(labelsize=10)
-    # Labels and formatting
-    plt.xlabel(CFG["cv_xlabel"], fontsize=16)
-    plt.ylabel(CFG["cv_ylabel"], fontsize=16)
-    plt.xticks(np.arange(*CFG["heatmap_xticks"]), fontsize=16)
-    plt.yticks(np.arange(*CFG["heatmap_yticks"]), fontsize=16)
-    plt.gca().spines["top"].set_visible(False)
-    plt.gca().spines["right"].set_visible(False)
-    plt.savefig(plot_filename, dpi=500, bbox_inches="tight")
-    # plt.show()
     # Merging frames in the same bin
     bin_mapping = defaultdict(list)
     # Populate the bin mapping with frame indices and weights
@@ -565,7 +373,7 @@ def mdau_to_pos_arr(u):
 def get_clusters(
     data_dir, output_directory, reference_top, reference_traj, simulation_top, simulation_traj
 ):
-    """Report the structure and image counts and plot a sample of the cluster centres."""
+    """Report the structure and image counts and check both position sets are centred."""
     data_dir = os.path.abspath(data_dir)
     output_directory = os.path.abspath(output_directory)
     reference_top = os.path.join(data_dir, reference_top)
@@ -590,137 +398,19 @@ def get_clusters(
     print(f"Number of images (1 synthetic image per structure): {nImage}")
     nCluster = len(mda.Universe(simulation_top, simulation_traj).trajectory)  # Number of clusters
     print("Number of cluster centers: ", nCluster)
-    fig = plt.figure(figsize=(15, 10), dpi=500)
-    num_clusters_to_plot = 16
-    selected_indices = np.linspace(
-        0, nCluster - 1, num_clusters_to_plot, dtype=int
-    )  # Select 16 structures for plotting
-    for i, idx in enumerate(selected_indices):
-        ax = fig.add_subplot(
-            4, 4, i + 1, aspect="equal", projection="3d", proj_type="ortho"
-        )  # 3D subplot for each structure
-        nAtom = posStruc[idx].shape[0]
-        colors = plt.cm.rainbow(np.linspace(0, 1, nAtom))  # Assign unique color for each atom
-        for j in range(nAtom):
-            ax.scatter(
-                posStruc[idx, j, 0],
-                posStruc[idx, j, 1],
-                posStruc[idx, j, 2],
-                s=10,
-                c=colors[j],
-                marker="o",
-            )
-            if j > 0:
-                ax.plot(
-                    [posStruc[idx, j - 1, 0], posStruc[idx, j, 0]],
-                    [posStruc[idx, j - 1, 1], posStruc[idx, j, 1]],
-                    [posStruc[idx, j - 1, 2], posStruc[idx, j, 2]],
-                    color=colors[j],
-                    linewidth=2,
-                )  # Backbone connection
-            # Connect atoms within 6 Å to visualize possible interactions
-            if j < nAtom - 1:
-                for k in range(j + 1, nAtom):
-                    dist = torch.norm(posStruc[idx, j] - posStruc[idx, k])
-                    if dist < 6.0:
-                        ax.plot(
-                            [posStruc[idx, j, 0], posStruc[idx, k, 0]],
-                            [posStruc[idx, j, 1], posStruc[idx, k, 1]],
-                            [posStruc[idx, j, 2], posStruc[idx, k, 2]],
-                            color=plt.cm.Greys(dist / 12.0),
-                            linewidth=0.5,
-                        )  # Scale connection color by distance
-        ax.grid(False)
-        ax.set_xticks([])
-        ax.set_yticks([])
-        ax.set_zticks([])
-        ax.set_xlim(-CFG["cluster_axis_limit"], CFG["cluster_axis_limit"])
-        ax.set_ylim(-CFG["cluster_axis_limit"], CFG["cluster_axis_limit"])
-        ax.set_zlim(-CFG["cluster_axis_limit"], CFG["cluster_axis_limit"])
-        ax.set_title(f"Cluster {idx}")
-    plt.tight_layout()
-    plt.subplots_adjust(wspace=0.01, hspace=0.09)
-    plot_filename = os.path.join(output_directory, "clust_struct.png")
-    plt.savefig(plot_filename, dpi=500, bbox_inches="tight")
-    # plt.show()
-
-
-def _plot_distance_matrix(diff, obs_label, dist_label, path):
-    """Heatmap of the structure by observation squared distance matrix."""
-    n_struct, n_obs = diff.shape
-    fig = plt.figure(figsize=(12, 8), dpi=500)
-    ax = fig.add_subplot(111)
-    cax = ax.imshow(
-        diff,
-        cmap="afmhot",
-        origin="lower",
-        aspect="auto",
-        interpolation="none",
-        extent=[0.5, n_obs + 0.5, 0.5, n_struct + 0.5],
-        vmin=0,
-        vmax=np.percentile(diff, 99),
-    )
-    ax.set_xticks(np.linspace(0, n_obs, min(10, max(n_obs, 2)), dtype=int))
-    ax.set_yticks(np.linspace(0, n_struct, min(10, max(n_struct, 2)), dtype=int))
-    ax.set_xlabel(obs_label, fontsize=16)
-    ax.set_ylabel("Structure index", fontsize=16)
-    ax.tick_params(axis="both", which="major", labelsize=16)
-    cbar = fig.colorbar(cax)
-    cbar.set_label(dist_label, fontsize=16)
-    cbar.ax.tick_params(labelsize=16)
-    plt.tight_layout()
-    plt.savefig(path, dpi=500, bbox_inches="tight")
-    plt.close(fig)
-
-
-def _plot_per_structure_histogram(values, x_label, path):
-    """One density curve per structure, coloured by structure index."""
-    # The upper edge follows the 99th percentile so the same code frames both the raw
-    # distances and the negative log likelihood, whose ranges differ by orders of magnitude.
-    bins = np.linspace(0.0, float(np.percentile(values, 99)) + 1e-6, 101)
-    n_struct = values.shape[0]
-    fig = plt.figure(figsize=(12, 8), dpi=500)
-    ax = fig.add_subplot(111)
-    colors = plt.cm.plasma(np.linspace(0, 1, n_struct))
-    for i in range(n_struct):
-        hist, edges = np.histogram(values[i], bins=bins, density=True)
-        ax.plot(edges[:-1], hist, color=colors[i], alpha=0.8)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.set_xlim(bins[0], bins[-1])
-    ax.set_xlabel(x_label, fontsize=16)
-    ax.set_ylabel("Density", fontsize=16)
-    ax.tick_params(axis="both", which="major", labelsize=16)
-    sm = plt.cm.ScalarMappable(cmap="plasma", norm=plt.Normalize(vmin=0, vmax=max(n_struct - 1, 1)))
-    sm.set_array([])
-    cbar = fig.colorbar(sm, ax=ax)
-    cbar.set_label("Structure index", fontsize=16)
-    cbar.ax.tick_params(labelsize=16)
-    plt.tight_layout()
-    plt.savefig(path, dpi=500, bbox_inches="tight")
-    plt.close(fig)
 
 
 def reweight(
     ctx,
-    img_struc_dist_file,
-    hist_img_struct_dist_file,
-    hist_neg_lkhood_file,
     initial_weights,
     rescaled_weights_file,
 ):
     """Reweight the ensemble by expectation maximization against the configured likelihood."""
     out = ctx["output_directory"]
-    obs_label, dist_label = likelihoods.labels_of(ctx["cfg"])
     diff, scale = likelihoods.distance_of(ctx)
-    _plot_distance_matrix(diff, obs_label, dist_label, os.path.join(out, img_struc_dist_file))
-    _plot_per_structure_histogram(diff, dist_label, os.path.join(out, hist_img_struct_dist_file))
     # A Gaussian likelihood of width scale turns a squared distance into a log probability,
     # so the negative log likelihood is the distance over twice the squared scale.
     nll = diff / (2 * scale**2)
-    _plot_per_structure_histogram(
-        nll, "Negative log likelihood", os.path.join(out, hist_neg_lkhood_file)
-    )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Device:", device)
     log_lik_mat = torch.from_numpy((-nll).astype(np.float32)).to(device)
@@ -831,111 +521,6 @@ def rescale_weights(
     print(f"\nSum of weights: {sum(normalized_weights):.32e}")
     print(f"Data saved to  {rescaled_merged_details_file} and {sorted_indices_weights_file}")
     print(f"Final rescaled weights saved to {rescaled_weights_all}")
-
-
-def get_rescaled_plots(
-    data_dir,
-    output_directory,
-    init_weights,
-    rescaled_weights,
-    simulation_top,
-    simulation_traj,
-    n_bins,
-):
-    """Plot the initial and the rescaled weights over the collective variable space."""
-    data_dir = os.path.abspath(data_dir)
-    output_directory = os.path.abspath(output_directory)
-    simulation_traj = os.path.join(output_directory, simulation_traj)
-    simulation_top = os.path.join(data_dir, simulation_top)
-    init_weights = os.path.join(output_directory, init_weights)
-    rescaled_weights = os.path.join(output_directory, rescaled_weights)
-    init_weights = np.loadtxt(init_weights)
-    print("Length of the initial weights list: ", len(init_weights))
-    rescaled_weights = np.loadtxt(rescaled_weights)
-    print("Length of the rescaled weights list: ", len(rescaled_weights))
-    ref = md.load(simulation_top)  # Load the simulation topology
-    traj = md.load(simulation_traj, top=simulation_top)  # Load the simulation trajectory
-    cv = cv_families.cv_of(traj, ref, CFG)
-    rmsd_values = cv[:, 0]
-    rg_values = cv[:, 1]
-    # Ensure cv1 and cv2 have the same length
-    cv1 = rmsd_values
-    cv2 = rg_values
-    assert len(cv1) == len(
-        cv2
-    ), f"cv1 and cv2 must have the same shape. Got {len(cv1)} and {len(cv2)}"
-    print(f"Length of RMSD: {len(cv1)}, Length of Rg: {len(cv2)}")
-    n_bins = n_bins
-    xedges = np.linspace(np.min(cv1) - 0.1, np.max(cv1) + 0.1, n_bins)
-    yedges = np.linspace(np.min(cv2) - 0.1, np.max(cv2) + 0.1, n_bins)
-    H1, _, _ = np.histogram2d(
-        cv1, cv2, bins=(xedges, yedges), density=True, weights=rescaled_weights
-    )
-    H2, _, _ = np.histogram2d(cv1, cv2, bins=(xedges, yedges), density=True, weights=init_weights)
-    # Determine a common vmax for both plots
-    common_vmax = max(np.max(H1), np.max(H2))
-    rmsd_values = cv1
-    rg_values = cv2
-    weights = init_weights
-    assert len(rmsd_values) == len(rg_values) == len(weights), "Arrays must have the same length"
-    weights = (weights - weights.min()) / (weights.max() - weights.min() + 1e-8)
-    fig, ax = plt.subplots(figsize=(12, 8), dpi=500)
-    constant_size = 1000
-    sc = ax.scatter(
-        rmsd_values,
-        rg_values,
-        s=constant_size,
-        c=weights,
-        cmap="plasma",
-        alpha=1,
-        edgecolors="black",
-        vmin=0,
-        vmax=1,
-    )
-    ax.set_facecolor("white")
-    fig.patch.set_facecolor("white")
-    cbar = plt.colorbar(sc, ax=ax)
-    cbar.set_label("Weights", fontsize=16)
-    cbar.mappable.set_clim(0, 1)
-    ax.set_xlabel(CFG["cv_xlabel"], fontsize=16)
-    ax.set_ylabel(CFG["cv_ylabel"], fontsize=16)
-    ax.tick_params(axis="both", which="major", labelsize=14)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    plt.tight_layout()
-    plt.savefig(os.path.join(output_directory, "init_weights.png"), dpi=500)
-    # plt.show()
-    rmsd_values = cv1
-    rg_values = cv2
-    weights = rescaled_weights
-    assert len(rmsd_values) == len(rg_values) == len(weights), "Arrays must have the same length"
-    weights = (weights - weights.min()) / (weights.max() - weights.min() + 1e-8)
-    fig, ax = plt.subplots(figsize=(12, 8), dpi=500)
-    constant_size = 1000
-    sc = ax.scatter(
-        rmsd_values,
-        rg_values,
-        s=constant_size,
-        c=weights,
-        cmap="plasma",
-        alpha=1,
-        edgecolors="black",
-        vmin=0,
-        vmax=1,
-    )
-    ax.set_facecolor("white")
-    fig.patch.set_facecolor("white")
-    cbar = plt.colorbar(sc, ax=ax)
-    cbar.set_label("Weights", fontsize=16)
-    cbar.mappable.set_clim(0, 1)
-    ax.set_xlabel(CFG["cv_xlabel"], fontsize=16)
-    ax.set_ylabel(CFG["cv_ylabel"], fontsize=16)
-    ax.tick_params(axis="both", which="major", labelsize=14)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    plt.tight_layout()
-    plt.savefig(os.path.join(output_directory, "rescaled_weights.png"), dpi=500)
-    # plt.show()
 
 
 # Functions to create starting directories for simulations
@@ -1147,34 +732,6 @@ def combine_init_files(bstates_dir, combined_file):
         print("No valid .init files to combine.")
 
 
-def plot_pcoord_and_save(bstates_dir, output_directory, pcoord_file, output_file):
-    """Plot the progress coordinates of the basis states."""
-    # Construct absolute paths for pcoord file and output plot
-    pcoord_path = os.path.join(bstates_dir, pcoord_file)
-    output_directory = os.path.abspath(output_directory)
-    output_path = os.path.join(output_directory, output_file)
-    # Ensure pcoord file exists
-    if not os.path.exists(pcoord_path):
-        print(f"ERROR: pcoord file not found: {pcoord_path}")
-        return
-    pcoord_data = np.loadtxt(pcoord_path)
-    plt.figure(figsize=(10, 6))
-    plt.scatter(pcoord_data[:, 0], pcoord_data[:, 1], s=200, alpha=0.7)
-    plt.xlabel(CFG["cv_xlabel"], fontsize=14)
-    plt.ylabel(CFG["cv_ylabel"], fontsize=14)
-    plt.xticks(
-        np.arange(int(min(pcoord_data[:, 0])), int(max(pcoord_data[:, 0])) + 1, 1), fontsize=12
-    )
-    plt.yticks(
-        np.arange(int(min(pcoord_data[:, 1])), int(max(pcoord_data[:, 1])) + 1, 1), fontsize=12
-    )
-    plt.gca().spines["right"].set_visible(False)
-    plt.gca().spines["top"].set_visible(False)
-    plt.savefig(output_path, bbox_inches="tight", dpi=500)
-    plt.close()
-    print(f"Plot saved in bstates_dir: {output_path}")
-
-
 def organize_files_to_dir(data_dir, output_directory, bstates_dir, framecount_file):
     """Move each basis state into its own numbered directory."""
     # Construct absolute paths
@@ -1255,13 +812,12 @@ def generate_bstates_file(
 
 
 def get_bottleneck(
-    data_dir, dcd_file, topo_file, output_dir, fig_bottleneck, nbins, sigma_mults, bottleneck_file
+    data_dir, dcd_file, topo_file, output_dir, nbins, sigma_mults, bottleneck_file
 ):
     """Locate the bottleneck coordinates on the free energy surface and write them out."""
     # Paths
     traj_path = os.path.join(data_dir, dcd_file)
     top_path = os.path.join(data_dir, topo_file)
-    fig_save_path = os.path.join(output_dir, fig_bottleneck)
     file_save_path = os.path.join(output_dir, bottleneck_file)
     traj = md.load(traj_path, top=top_path)
     ref = md.load(top_path)
@@ -1319,46 +875,6 @@ def get_bottleneck(
         for idx, (label, (xr, yr)) in enumerate(points, start=1):
             f.write(f"{idx}\t{label}\t{xr:.4f}\t{yr:.4f}\n")
     print(f"Wrote bottleneck data → {file_save_path}")
-    fig = plt.figure(figsize=(8, 6))
-    ax = fig.add_subplot(1, 1, 1)
-    X, Y = np.meshgrid(xg, yg)
-    cmap = plt.cm.viridis.copy()
-    cmap.set_bad("white")
-    levels = np.linspace(Fg_masked.min(), Fg_masked.max(), 60)
-    cs = ax.contourf(
-        X,
-        Y,
-        Fg_masked,
-        levels=levels,
-        cmap=cmap,
-        **(
-            {"extend": CFG["bottleneck_contourf_extend"]}
-            if CFG.get("bottleneck_contourf_extend")
-            else {}
-        ),
-    )
-    for sp in ("top", "right"):
-        ax.spines[sp].set_visible(False)
-    for idx, (label, (xr, yr)) in enumerate(points, start=1):
-        ax.scatter(xr, yr, c="k", s=10)
-        ax.text(xr + 0.05, yr + 0.05, str(idx), fontsize=8, color="black")
-    legend_labels = [f"{i}: {lbl}" for i, (lbl, _) in enumerate(points, start=1)]
-    ax.legend(legend_labels, frameon=False, fontsize=8, loc="upper left")
-    if CFG.get("bottleneck_xlabel", ""):
-        ax.set_xlabel(CFG["bottleneck_xlabel"], fontsize=12)
-    if CFG.get("bottleneck_ylabel", ""):
-        ax.set_ylabel(CFG["bottleneck_ylabel"], fontsize=12)
-    ax.set_xlim(CFG["xmin"], CFG["xmax"])
-    ax.set_ylim(CFG["ymin"], CFG["ymax"])
-    plt.tight_layout(rect=[0, 0, 0.90, 1])
-    cax = fig.add_axes([0.88, 0.15, 0.03, 0.7])
-    cbar = fig.colorbar(cs, cax=cax, extend="neither")
-    cbar.set_label("Free Energy", fontsize=12)
-    for spine in ("top", "right", "left"):
-        cax.spines[spine].set_visible(False)
-    cbar.ax.yaxis.set_ticks_position("right")
-    fig.savefig(fig_save_path, dpi=300)
-    plt.close(fig)
 
 
 def copy_file(src, dst):
@@ -1400,42 +916,11 @@ def main(run0=False):
         max_frames=source_max,
     )
 
-    # (cfg.run_plot_free_energy gates the call, ntl9 defines the fn but skips it)
-    if not run0 and CFG.get("run_plot_free_energy", True):
-        plot_free_energy(
-            data_dir="data",
-            output_directory="output",
-            trajectory_file="image.dcd",
-            topology_file=CFG["topology_analysis"],
-            kB=CFG["kB"],
-            T=CFG["T"],
-            output_file="free_energy_image.png",
-            nbins=tuple(CFG["fe_nbins"]),
-        )
-
-    # Overlay the dashed KDE contours of the seeding and selected distributions
+    # The Boltzmann selected target set, or the raw target pool when no selection was made
     selected = CFG.get("out_boltz_dcd", "image_sel.dcd")
     if not os.path.exists(os.path.join("data", selected)):
-        # When run_get_distribution is false no Boltzmann selection was made, so the raw
-        # target pool stands in for it.
         print(f"{selected} not present, using {CFG['traj_file']} as the selected target")
         selected = CFG["traj_file"]
-    plot_overlap(
-        data_dir="data",
-        output_directory="output",
-        topology=CFG["topology_analysis"],
-        initial_md="init_md.dcd",
-        selected_traj=selected,
-        output_file="overlap_sim_image.png",
-        bw=0.75,
-        n_levels=25,
-        nx=400,
-        ny=400,
-        xmin=CFG["xmin"],
-        xmax=CFG["xmax"],
-        ymin=CFG["ymin"],
-        ymax=CFG["ymax"],
-    )
 
     initialize(
         data_dir="data",
@@ -1482,7 +967,6 @@ def main(run0=False):
         merged_details_pickle="merged_details.pkl",
         simulation_traj="selected_frames.dcd",
         initial_weights="selected_weights.txt",
-        plot_filename="bin_dist.png",
     )
 
     check_cuda()
@@ -1497,7 +981,7 @@ def main(run0=False):
         simulation_top=CFG["topology_analysis"],
     )
 
-    # Identify and visualize structural clusters from `selected_frames.dcd` and `reference.dcd`
+    # Check the structure and image sets from `selected_frames.dcd` and `reference.dcd`
     get_clusters(
         data_dir="data",
         output_directory="output",
@@ -1522,9 +1006,6 @@ def main(run0=False):
     }
     reweight(
         CTX,
-        img_struc_dist_file="img_struct_dist_mtx.png",
-        hist_img_struct_dist_file="hist_img_struct_dist.png",
-        hist_neg_lkhood_file="hist_neg_lkhood.png",
         initial_weights="selected_weights.txt",
         rescaled_weights_file="rescaled_weights.txt",
     )
@@ -1538,16 +1019,6 @@ def main(run0=False):
         rescaled_merged_details_file="mergd_bins_wght_rescld.txt",
         sorted_indices_weights_file="srtd_ind_wghts.txt",
         rescaled_weights_all="rescaled_weights_all.txt",
-    )
-
-    get_rescaled_plots(
-        data_dir="data",
-        output_directory="output",
-        init_weights="selected_weights.txt",
-        rescaled_weights="rescaled_weights.txt",
-        simulation_top=CFG["topology_analysis"],
-        simulation_traj="selected_frames.dcd",
-        n_bins=20,
     )
 
     extract_selected_frames(
@@ -1588,13 +1059,6 @@ def main(run0=False):
     # Combine all `.init` files into a single `pcoord.init` file
     combine_init_files(bstates_dir="bstates", combined_file="pcoord.init")
 
-    plot_pcoord_and_save(
-        bstates_dir="bstates",
-        output_directory="output",
-        pcoord_file="pcoord.init",
-        output_file="pcoord_plot.png",
-    )
-
     # Organize basis state files into numbered directories for weighted ensemble simulations
     organize_files_to_dir(
         data_dir="data",
@@ -1622,7 +1086,6 @@ def main(run0=False):
         dcd_file=source_dcd,
         topo_file=CFG["topology_we"],
         output_dir="output",
-        fig_bottleneck="bottleneck.png",
         nbins=tuple(CFG["bottleneck_nbins"]),
         sigma_mults=CFG["sigma_mults"],
         bottleneck_file="bottleneck_coordinates.txt",

@@ -101,7 +101,6 @@
     <output_file>fes.png</output_file>
     <pixel_size type="float">0.2</pixel_size>
     <platform>CPU</platform>
-    <run_plot_free_energy type="bool">true</run_plot_free_energy>
     <select_mode>thresh</select_mode>
     <sigma type="float">1.5</sigma>
     <sigma_mults type="list">[-3, -2, -1, 1, 2, 3]</sigma_mults>

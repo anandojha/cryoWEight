@@ -85,7 +85,7 @@
     <minimize_tolerance_kj_nm type="float">10.0</minimize_tolerance_kj_nm>
     <n_batch type="int">2</n_batch>
     <n_image_per_struc type="int">1</n_image_per_struc>
-    <n_pixel type="int">64</n_pixel>
+    <n_pixel type="int">128</n_pixel>
     <n_steps type="int">500000</n_steps>
     <nbins type="list">[100, 100]</nbins>
     <nonbonded_cutoff_nm type="int">2</nonbonded_cutoff_nm>
@@ -98,7 +98,6 @@
     <output_file>fes.png</output_file>
     <pixel_size type="float">0.2</pixel_size>
     <platform>CUDA</platform>
-    <run_plot_free_energy type="bool">false</run_plot_free_energy>
     <select_mode>thresh</select_mode>
     <sigma type="float">1.5</sigma>
     <sigma_mults type="list">[-3, -2, -1, 1, 2, 3]</sigma_mults>
@@ -139,13 +138,13 @@
     <cv_atom_selection>name CA</cv_atom_selection>
     <cv_family>rmsd_rg</cv_family>
     <cv_reference_pdb>folded.pdb</cv_reference_pdb>
-    <dcd_report_interval type="int">2500</dcd_report_interval>
+    <dcd_report_interval type="int">1250</dcd_report_interval>
     <ff_main>amber14-all.xml</ff_main>
     <ff_solvent>implicit/obc2.xml</ff_solvent>
     <friction_per_ps type="int">5</friction_per_ps>
     <input_pdb>bstate.pdb</input_pdb>
     <log_report_interval type="int">2000</log_report_interval>
-    <n_steps_per_segment type="int">5000</n_steps_per_segment>
+    <n_steps_per_segment type="int">2500</n_steps_per_segment>
     <nonbonded_cutoff_nm type="int">2</nonbonded_cutoff_nm>
     <out_dcd>seg.dcd</out_dcd>
     <out_log>seg.log</out_log>
