@@ -110,9 +110,6 @@
     <solvent_padding_nm type="float">1.2</solvent_padding_nm>
     <step type="int">2</step>
     <strip_selection>not water</strip_selection>
-    <tar_base>./chignolin_demo</tar_base>
-    <tar_iterations type="list">[3, 4, 5]</tar_iterations>
-    <tar_n_runs type="int">1</tar_n_runs>
     <temperature_K type="int">300</temperature_K>
     <timestep_ps type="float">0.002</timestep_ps>
     <topology_analysis>topology_implicit.pdb</topology_analysis>

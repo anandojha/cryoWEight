@@ -119,9 +119,6 @@
     <solvent_padding_nm type="float">1.2</solvent_padding_nm>
     <step type="int">4</step>
     <strip_selection>not (water or resname HOH or resname WAT or resname NA or resname CL)</strip_selection>
-    <tar_base>/mnt/home/aojha/ceph/ensemble_reweighting/adk_iterative_WE/iterative_reweighting/strict_25_iter_snr_1.0_III</tar_base>
-    <tar_iterations type="list">[23, 24, 25]</tar_iterations>
-    <tar_n_runs type="int">7</tar_n_runs>
     <temperature_K type="int">300</temperature_K>
     <timestep_ps type="float">0.002</timestep_ps>
     <topology_analysis>topology_implicit.pdb</topology_analysis>

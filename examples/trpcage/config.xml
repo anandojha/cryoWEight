@@ -110,9 +110,6 @@
     <solvent_model>implicit</solvent_model>
     <step type="int">4</step>
     <strip_selection>not water</strip_selection>
-    <tar_base>/mnt/home/aojha/ceph/ensemble_reweighting/ntl9_iterative_WE/iterative_reweighting/permissive_40_iter_snr_1.0_2.75_3.50</tar_base>
-    <tar_iterations type="list">[38, 39, 40]</tar_iterations>
-    <tar_n_runs type="int">3</tar_n_runs>
     <temperature_K type="int">300</temperature_K>
     <timestep_ps type="float">0.002</timestep_ps>
     <topology_analysis>trpcage.pdb</topology_analysis>

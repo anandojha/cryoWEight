@@ -38,7 +38,6 @@ PHASE2_REFACTORED = {
     "scripts/build_system.py",
     "init_MD/simulation.py",
     "init_MD/build_system.py",
-    "tar.py",
 }
 
 # Single shared copy. The ntl9 corpus copies differ only cosmetically and are not byte checked.

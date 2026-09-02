@@ -110,9 +110,6 @@
     <solvent_padding_nm type="float">1.2</solvent_padding_nm>
     <step type="int">2</step>
     <strip_selection>not water</strip_selection>
-    <tar_base>/mnt/home/aojha/ceph/ensemble_reweighting/chignolin_iterative_WE/iterative_reweighting/strict_30_iter_snr_1.0</tar_base>
-    <tar_iterations type="list">[28, 29, 30]</tar_iterations>
-    <tar_n_runs type="int">8</tar_n_runs>
     <temperature_K type="int">300</temperature_K>
     <timestep_ps type="float">0.002</timestep_ps>
     <topology_analysis>topology_implicit.pdb</topology_analysis>
