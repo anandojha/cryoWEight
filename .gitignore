@@ -7,13 +7,9 @@ dist/
 
 *.bak
 
-# Seeding MD outputs generated inside the shipped demo systems.
 examples/adk/init_MD/adk.*
 examples/ntl9/init_MD/ntl9.*
 examples/*/init_MD/reweight_config.json
 examples/trpcage/init_MD/trpcage.dcd
 examples/trpcage/init_MD/trpcage.log
 examples/trpcage/init_MD/trpcage.xml
-
-# The legacy figure demo stays on the cluster only.
-demo/
