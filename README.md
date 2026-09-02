@@ -32,21 +32,32 @@ bash install.sh
 conda activate cryoweight
 ```
 
-Step 2, run any example. Each is one command.
+Step 2, run the tests.
 
 ```bash
+cd cryoWEight
+python tests/test_cryoweight.py
+```
+
+Step 3, run any example from inside the repository.
+
+```bash
+cd cryoWEight
 bash examples/chignolin/run.sh
 ```
 
 ```bash
+cd cryoWEight
 bash examples/trpcage/run.sh
 ```
 
 ```bash
+cd cryoWEight
 bash examples/ntl9/run.sh
 ```
 
 ```bash
+cd cryoWEight
 bash examples/adk/run.sh
 ```
 
@@ -87,10 +98,4 @@ shared/          files identical across systems
 templates/       <rel>.tmpl rendered from config
 systems/         <name>.xml and <name>/{overrides,data,init_MD}
 tests/           unit tests and one end to end run
-```
-
-## Validate
-
-```bash
-python tests/test_cryoweight.py
 ```
