@@ -2600,6 +2600,9 @@ def test_iteration_stages_report_done_only_on_real_artifacts():
 
 # the equivalence and pipeline suites, formerly separate files
 
+if __name__ == "__main__":
+    print("loading the MD stack, the tests follow", flush=True)
+
 import json as _json
 import subprocess as _subprocess
 
@@ -2785,8 +2788,6 @@ def _ts_orig_cv(traj, ref, cvcfg):
 def test_the_three_real_systems_reproduce_their_originals():
     """The shared builder and CV reproduce each original system exactly on real data."""
 
-    print(f"{'system':10} {'validate':>10} {'build_system':>14} {'cv_of (real data)':>22}")
-    print("-" * 62)
     ok = True
     for s in ["adk", "chignolin", "ntl9"]:
         cfg = configio.read_xml(os.path.join(ROOT, "systems", f"{s}.xml"))
@@ -2833,8 +2834,6 @@ def test_the_three_real_systems_reproduce_their_originals():
             f"{s:10} {v_lbl:>10} {('OK '+str(new.getNumParticles())+'p') if b_ok else 'FAIL':>14} "
             f"{('OK '+rc['cv_cfg']['cv_family']) if c_ok else 'FAIL':>22}"
         )
-    print("-" * 62)
-    print("ALL THREE SYSTEMS PASS" if ok else "FAILURES PRESENT")
     assert ok, "a real system diverged from its original"
 
 
@@ -2883,7 +2882,6 @@ def _p2_original_system(name, cfg, top):
 
 def test_the_shared_system_factory_matches_the_original_inline_builds():
     """Each System built by the factory serializes to the same XML as the original call."""
-    print("== build_system equivalence ==")
     for name, cfg in P2_SYSTEMS.items():
         pdb = PDBFile(cfg["pdb"])
         cfg = dict(cfg, constraints="HBonds")
@@ -2927,7 +2925,6 @@ def _p2_orig_adk(parent, seg, reference, g):
 
 def test_the_shared_cv_families_match_the_original_inline_cv():
     """Both CV families reproduce the original inline math exactly on real structures."""
-    print("== cv_families equivalence ==")
     # rmsd_rg via chignolin trajectory
     traj = mdtraj.load(CHIG_TRAJ, top=CHIG_TOP)
     ref = traj[0]
@@ -2966,13 +2963,13 @@ def test_the_shared_cv_families_match_the_original_inline_cv():
 def _main():
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
     failed = []
-    for name, fn in tests:
+    for i, (name, fn) in enumerate(tests, 1):
         try:
             fn()
-            print(f"  pass  {name}")
+            print(f"[{i:3d}/{len(tests)}] pass  {name}", flush=True)
         except Exception as exc:
             failed.append((name, exc))
-            print(f"  FAIL  {name}: {type(exc).__name__}: {exc}")
+            print(f"[{i:3d}/{len(tests)}] FAIL  {name}: {type(exc).__name__}: {exc}", flush=True)
     print(f"\n{len(tests) - len(failed)} passed, {len(failed)} failed, {len(tests)} total")
     return 1 if failed else 0
 
