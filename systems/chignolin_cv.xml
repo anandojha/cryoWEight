@@ -107,7 +107,6 @@
     <sigma_mults type="list">[-3, -2, -1, 1, 2, 3]</sigma_mults>
     <sigma_sign>+</sigma_sign>
     <snr type="float">1.0</snr>
-    <snr_int type="int">1</snr_int>
     <solute_dielectric type="float">1.0</solute_dielectric>
     <solvent_dielectric type="float">78.5</solvent_dielectric>
     <solvent_model>implicit</solvent_model>

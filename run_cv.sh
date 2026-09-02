@@ -3,7 +3,7 @@
 # bash run_cv.sh [WORKDIR] [ITERS]
 # ITERS = number of outer reweighting iterations (init = run1, then iterate 2..ITERS).
 # Each WESTPA run does seg_config/west.cfg sub-iterations (small by default). Adjust
-# size in systems/chignolin_cv.yaml: n_iterations (WE sub-iters), n_steps_per_segment.
+# size in systems/chignolin_cv.xml: n_iterations (WE sub-iters), n_steps_per_segment.
 set -e
 REPO="$(cd "$(dirname "$0")" && pwd)"
 WORK="${1:-cv_run}"

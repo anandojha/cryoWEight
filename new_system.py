@@ -93,8 +93,6 @@ def scaffold(a) -> dict:
     _set(rc, "pixel_size", a.pixel_size)
     _set(rc, "snr", a.snr)
     _set(rc, "sigma", a.sigma)
-    if a.snr is not None:
-        rc["snr_int"] = int(a.snr) if float(a.snr).is_integer() else a.snr
 
     # Weighted ensemble schedule.
     if a.n_iterations is not None:

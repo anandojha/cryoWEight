@@ -140,7 +140,6 @@ def _stage_we_files(run_dir):
         "init.sh",
         "west.cfg",
         "env.sh",
-        "run.sh",
         "submit_WE.sh",
         "westpa_scripts",
         "simtime.py",
@@ -209,7 +208,7 @@ def _stage_reweight_scripts(dst):
 def _resolve_run_placeholder(run_dir, run_name):
     """Point the configuration for this run at its own WE directory.
 
-    The system YAML writes paths such as ../runx/merged_WE so that one config serves every
+    The system configuration writes paths such as ../runx/merged_WE so that one config serves every
     iteration. The placeholder lives in reweight_config.json, not in the script, so this
     rewrites the config the staged script is about to read.
     """

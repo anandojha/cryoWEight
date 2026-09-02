@@ -28,7 +28,6 @@ PHASE2_REFACTORED = {
     "WE_files/common_files/seg_config.json",
     # Phase 3 made the reweighting and analysis pipeline shared and config driven
     "scripts/reweight.py",
-    "scripts/reweight_run0.py",
     "scripts/merge.py",
     "scripts/sample_bstates.py",
     "scripts/get_distribution.py",
@@ -41,7 +40,7 @@ PHASE2_REFACTORED = {
 }
 
 # Single shared copy. The ntl9 corpus copies differ only cosmetically and are not byte checked.
-CANONICALIZED_COSMETIC = {"WE_files/init.sh", "WE_files/westpa_scripts/node.sh"}
+CANONICALIZED_COSMETIC = {"WE_files/init.sh"}
 
 
 def resolve(system: str):
@@ -101,7 +100,7 @@ def _pcoord_len(raw):
 def flatten(d: dict, prefix: str = "") -> dict:
     """Lift every leaf of a nested configuration into one flat namespace.
 
-    A template refers to a value by its own name, so the nesting in the YAML groups
+    A template refers to a value by its own name, so the nesting in the configuration groups
     related settings for a reader and means nothing to the substitution. Two blocks
     defining the same leaf would be ambiguous, so that raises rather than picking one.
     """
@@ -199,7 +198,7 @@ def assemble(system: str, dest: str, stage_data: bool = True) -> list[str]:
         if block in raw:
             data = dict(raw[block])
             if block == "reweight_config":
-                # The subiteration count is set once at the top of the YAML. The runtime
+                # The subiteration count is set once at the top of the configuration. The runtime
                 # scripts read it from this JSON, so it is injected here rather than
                 # duplicated in the block.
                 top = raw.get("n_iterations")
