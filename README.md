@@ -24,10 +24,6 @@ conda activate cryoweight
 The installer detects the operating system, loads the cuda module on clusters that have
 one, and installs the CPU stack on a Mac.
 
-Step 1 leaves the shell inside the cryoWEight directory, and steps 2 and 3 run from
-there. On a Mac do not cd cryoWEight again from inside it, since the case insensitive
-filesystem lands in the cryoweight package instead.
-
 **Step 2: Run the tests**
 
 ```bash
