@@ -2966,8 +2966,20 @@ def _main():
 
     verbose = "-v" in sys.argv
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
+    total = len(tests)
     failed = []
+    live = sys.stdout.isatty() and not verbose
+
+    def draw(done, name):
+        filled = 24 * done // total
+        pct = 100 * done // total
+        text = name[:38]
+        sys.stdout.write(f"\r[{'█' * filled}{'░' * (24 - filled)}] {pct:3d}% {done:3d}/{total}  {text:<38}")
+        sys.stdout.flush()
+
     for i, (name, fn) in enumerate(tests, 1):
+        if live:
+            draw(i - 1, name)
         buffer = _io.StringIO()
         try:
             if verbose:
@@ -2977,14 +2989,20 @@ def _main():
                 # progress only. A failing test prints what it captured.
                 with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
                     fn()
-            print(f"[{i:3d}/{len(tests)}] pass  {name}", flush=True)
+            if not live:
+                print(f"[{i:3d}/{total}] pass  {name}", flush=True)
         except Exception as exc:
             failed.append((name, exc))
-            print(f"[{i:3d}/{len(tests)}] FAIL  {name}: {type(exc).__name__}: {exc}", flush=True)
+            if live:
+                sys.stdout.write("\r" + " " * 90 + "\r")
+            print(f"[{i:3d}/{total}] FAIL  {name}: {type(exc).__name__}: {exc}", flush=True)
             tail = buffer.getvalue().strip().splitlines()[-25:]
             for line in tail:
                 print(f"        {line}")
-    print(f"\n{len(tests) - len(failed)} passed, {len(failed)} failed, {len(tests)} total")
+    if live:
+        draw(total, "")
+        sys.stdout.write("\n")
+    print(f"\n{total - len(failed)} passed, {len(failed)} failed, {total} total")
     return 1 if failed else 0
 
 
