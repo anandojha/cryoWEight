@@ -56,22 +56,7 @@ platform otherwise. Run adk on a GPU machine, the other three run anywhere.
 
 ## Configure
 
-Everything is in the system `config.xml`.
-
-| Setting | Keys |
-|---|---|
-| System | `input_pdb`, `topology_we`, `topology_stripped`, `cv_reference_pdb` |
-| Solvent | `solvent_model`, `solvent_dielectric`, `solute_dielectric` |
-| MD | `ff_main`, `ff_solvent`, `temperature_K`, `timestep_ps`, `friction_per_ps`, `platform` |
-| Seeding MD | `n_steps`, `dcd_report_interval` |
-| Weighted ensemble | `n_iterations`, `n_steps_per_segment`, `walkers_per_bin`, `mab_at`, `mab_nbins`, `sigma_sign` |
-| Collective variables | `cv_family`, `cv_atom_selection` |
-| Imaging | `n_pixel`, `pixel_size`, `snr`, `sigma`, `add_ctf`, `N_draw` |
-| Target selection | `select_mode`, `x_lower`, `x_upper`, `x_thresh`, `y_lower`, `y_upper` |
-| Convergence | `kl_threshold`, `max_iterations` |
-
-Outer iterations come from the command line, `iterate --range 2 N` for a fixed count or
-`iterate --until-converged` for the KL stopping rule.
+Everything is in the system config.xml. Start from the config of the example closest to your system and edit. Outer rounds come from the command line, iterate --range 2 N for a fixed count or iterate --until-converged for the KL stopping rule.
 
 ## Layout
 
