@@ -56,7 +56,7 @@ platform otherwise. Run adk on a GPU machine, the other three run anywhere.
 
 ## Configure
 
-Everything is in the system config.xml. Start from the config of the example closest to your system and edit. Outer rounds come from the command line, iterate --range 2 N for a fixed count or iterate --until-converged for the KL stopping rule.
+Everything is in the system `config.xml`. Start from the config of the example closest to your system and edit. Outer rounds come from the command line, `iterate --range 2 N` for a fixed count or `iterate --until-converged` for the KL stopping rule.
 
 ## Layout
 
