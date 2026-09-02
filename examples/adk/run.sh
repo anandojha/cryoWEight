@@ -8,17 +8,23 @@ cd "$(dirname "$0")"
 python "$REPO/assemble.py" --system "$SYS" --dest "$WORK"
 cd "$WORK"
 
-if ! command -v nvidia-smi >/dev/null 2>&1; then
-  python - <<'PYEOF'
+python - <<'PYEOF'
 import json
 
-for p in ("scripts/reweight_config.json", "WE_files/common_files/seg_config.json"):
-    cfg = json.load(open(p))
-    cfg["platform"] = "CPU"
-    json.dump(cfg, open(p, "w"), indent=2)
-print("no GPU found, platform set to CPU")
+from openmm import Context, Platform, System, VerletIntegrator
+
+try:
+    system = System()
+    system.addParticle(1.0)
+    Context(system, VerletIntegrator(0.001), Platform.getPlatformByName("CUDA"))
+    print("CUDA platform works, using the GPU")
+except Exception:
+    for p in ("scripts/reweight_config.json", "WE_files/common_files/seg_config.json"):
+        cfg = json.load(open(p))
+        cfg["platform"] = "CPU"
+        json.dump(cfg, open(p, "w"), indent=2)
+    print("no working GPU, platform set to CPU")
 PYEOF
-fi
 
 DCD=$(python -c 'import json; print(json.load(open("scripts/reweight_config.json"))["init_md_dcd"])')
 if [ ! -f "init_MD/$DCD" ]; then
