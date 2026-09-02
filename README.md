@@ -5,10 +5,11 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Iterative weighted ensemble simulations reweighted against cryo-EM particle images,
-steering the ensemble towards the conformational populations in the images. The
-likelihood acts in image space, so states with no overlap in collective variable space
-are still reached.
+An automated and extensible Python framework that couples iterative weighted ensemble
+simulations with ensemble reweighting against cryo-EM particle images. Reweighting in
+the image space introduces a directional bias towards the target distribution even when
+the prior ensemble has no overlap with the target distribution in the collective
+variable space.
 
 ## Get started
 
