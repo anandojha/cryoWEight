@@ -60,11 +60,10 @@ bash examples/ntl9/run.sh
 bash examples/adk/run.sh
 ```
 
-Each script assembles the run tree, generates the 1 ns seeding trajectory when one is
-not shipped, runs 3 iterations of 2 weighted ensemble subiterations, and writes the
-free energy landscapes to `run*/merged_WE/fes.png` inside the example. A GPU is used
-when present and the CPU platform otherwise. Run adk on a GPU machine, the other three
-run anywhere.
+Each script assembles the run tree, generates the seeding trajectory when one is not
+shipped, runs the iterations, and writes the free energy landscapes to
+`run*/merged_WE/fes.png` inside the example. A GPU is used when present and the CPU
+platform otherwise. Run adk on a GPU machine, the other three run anywhere.
 
 ## Configure
 
